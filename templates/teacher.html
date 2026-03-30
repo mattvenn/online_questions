@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Teacher Dashboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
+    h1 { margin: 0 0 20px; color: #222; }
+    h2 { margin: 0 0 14px; font-size: 17px; color: #444; }
+
+    .layout { display: flex; gap: 24px; align-items: flex-start; }
+    .left  { flex: 0 0 300px; display: flex; flex-direction: column; gap: 16px; }
+    .right { flex: 1; }
+
+    .card { background: #fff; border-radius: 10px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+
+    /* QR */
+    .qr-section { text-align: center; }
+    .qr-section img { width: 180px; height: 180px; }
+    .qr-url { font-size: 13px; color: #555; word-break: break-all; margin-top: 8px; }
+    .qr-url a { color: #1976d2; }
+
+    /* Question list */
+    .q-item { border: 2px solid #e0e0e0; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+    .q-item.active { border-color: #4caf50; background: #f1fff3; }
+    .q-item h3 { margin: 0 0 3px; font-size: 14px; }
+    .q-meta { font-size: 12px; color: #888; margin-bottom: 8px; }
+    .btn { border: none; border-radius: 6px; padding: 7px 14px; font-size: 13px; cursor: pointer; font-weight: 600; }
+    .btn-ask  { background: #4caf50; color: #fff; }
+    .btn-stop { background: #e53935; color: #fff; }
+    .btn-export { background: #1976d2; color: #fff; padding: 10px 22px; font-size: 15px; width: 100%; }
+    .btn-impromptu { background: #ff7043; color: #fff; padding: 10px 22px; font-size: 15px; width: 100%; }
+    .btn:hover { opacity: .88; }
+
+    /* Impromptu form */
+    .impromptu-form { display: none; margin-top: 14px; }
+    .impromptu-form.open { display: block; }
+    .imp-field { width: 100%; padding: 8px 10px; border: 1.5px solid #d0d0d0; border-radius: 6px;
+                 font-size: 14px; margin-bottom: 8px; font-family: inherit; }
+    .imp-field:focus { outline: none; border-color: #ff7043; }
+    .imp-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .imp-row select { flex: 1; padding: 8px; border: 1.5px solid #d0d0d0; border-radius: 6px;
+                      font-size: 14px; font-family: inherit; }
+    .imp-hint { font-size: 12px; color: #888; margin-bottom: 6px; }
+    .btn-go { background: #ff7043; color: #fff; width: 100%; padding: 9px; font-size: 14px; }
+
+    /* Results */
+    .results-card { min-height: 300px; }
+    .no-active { color: #aaa; font-style: italic; margin-top: 40px; text-align: center; }
+    .q-text { font-size: 18px; font-weight: 600; margin-bottom: 6px; color: #222; }
+    .total-count { font-size: 28px; font-weight: 700; color: #4caf50; }
+    .total-label { font-size: 14px; color: #888; }
+
+    .bar-chart { margin-top: 20px; }
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+    .bar-label { width: 170px; font-size: 14px; text-align: right; flex-shrink: 0; color: #333; }
+    .bar-track { flex: 1; background: #e8e8e8; border-radius: 5px; height: 30px; position: relative; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 5px; background: #4caf50; transition: width 0.4s ease; min-width: 0; }
+    .bar-count { position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+                 font-size: 13px; font-weight: 700; color: #333; }
+  </style>
+</head>
+<body>
+  <h1>Teacher Dashboard</h1>
+  <div class="layout">
+
+    <div class="left">
+      <!-- QR Code -->
+      <div class="card qr-section">
+        <img src="data:image/png;base64,{{ qr }}" alt="QR Code">
+        <div class="qr-url"><a href="{{ student_url }}" target="_blank">{{ student_url }}</a></div>
+      </div>
+
+      <!-- Question list -->
+      <div class="card">
+        <h2>Questions</h2>
+        {% for q in questions %}
+        {% set i = loop.index0 %}
+        <div class="q-item {% if i == current_idx %}active{% endif %}">
+          <h3>{{ q.text }}</h3>
+          <div class="q-meta">
+            {{ q.type }}{% if q.type == 'rating' %} · {{ q.min }}–{{ q.max }}{% endif %}
+            {% if q.type == 'checkbox' %} · {{ q.options | length }} options{% endif %}
+          </div>
+          {% if i == current_idx %}
+          <button class="btn btn-stop" onclick="deactivate()">Stop</button>
+          {% else %}
+          <button class="btn btn-ask" onclick="activate({{ i }})">Ask this</button>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Impromptu question -->
+      <div class="card">
+        <button class="btn btn-impromptu" onclick="toggleImpForm()">+ Ask impromptu question</button>
+        <div class="impromptu-form" id="imp-form">
+          <div style="margin-top:12px;">
+            <textarea id="imp-text" class="imp-field" rows="2" placeholder="Question text…"></textarea>
+            <div class="imp-row">
+              <select id="imp-type" onchange="updateImpType()">
+                <option value="rating">Rating (1–10)</option>
+                <option value="checkbox">Checkboxes</option>
+              </select>
+            </div>
+            <div id="imp-checkbox-opts" style="display:none;">
+              <div class="imp-hint">One option per line:</div>
+              <textarea id="imp-opts" class="imp-field" rows="4" placeholder="option 1&#10;option 2&#10;option 3"></textarea>
+            </div>
+            <button class="btn btn-go" onclick="submitImpromtu()">Ask now</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Export -->
+      <a href="/export" style="text-decoration:none;">
+        <button class="btn btn-export">Export CSV</button>
+      </a>
+    </div>
+
+    <!-- Live results -->
+    <div class="right">
+      <div class="card results-card">
+        <h2>Live Results</h2>
+        <div id="results-content">
+          <p class="no-active">No question active — click "Ask this" to begin.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function activate(idx) {
+      fetch('/api/activate/' + idx, { method: 'POST' })
+        .then(() => location.reload());
+    }
+
+    function deactivate() {
+      fetch('/api/deactivate', { method: 'POST' })
+        .then(() => location.reload());
+    }
+
+    function pollResults() {
+      fetch('/api/results')
+        .then(r => r.json())
+        .then(data => {
+          const el = document.getElementById('results-content');
+          if (!data.active) {
+            el.innerHTML = '<p class="no-active">No question active — click "Ask this" to begin.</p>';
+            return;
+          }
+
+          const maxCount = Math.max(...Object.values(data.counts), 1);
+          let html = `
+            <div class="q-text">${data.question}</div>
+            <div style="margin-bottom:16px;">
+              <span class="total-count">${data.total}</span>
+              <span class="total-label"> response${data.total !== 1 ? 's' : ''}</span>
+            </div>
+            <div class="bar-chart">`;
+
+          for (const label of data.labels) {
+            const count = data.counts[label] || 0;
+            const pct = Math.round(count / maxCount * 100);
+            html += `
+              <div class="bar-row">
+                <div class="bar-label">${label}</div>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:${pct}%"></div>
+                  <span class="bar-count">${count}</span>
+                </div>
+              </div>`;
+          }
+
+          html += '</div>';
+          el.innerHTML = html;
+        });
+    }
+
+    pollResults();
+    setInterval(pollResults, 2000);
+
+    function toggleImpForm() {
+      document.getElementById('imp-form').classList.toggle('open');
+    }
+
+    function updateImpType() {
+      const t = document.getElementById('imp-type').value;
+      document.getElementById('imp-checkbox-opts').style.display = t === 'checkbox' ? 'block' : 'none';
+    }
+
+    function submitImpromtu() {
+      const text = document.getElementById('imp-text').value.trim();
+      const type = document.getElementById('imp-type').value;
+      if (!text) { alert('Please enter a question.'); return; }
+
+      const body = { text, type };
+      if (type === 'checkbox') {
+        const opts = document.getElementById('imp-opts').value
+          .split('\n').map(s => s.trim()).filter(Boolean);
+        if (!opts.length) { alert('Please enter at least one option.'); return; }
+        body.options = opts;
+      }
+
+      fetch('/api/add_question', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).then(() => location.reload());
+    }
+  </script>
+</body>
+</html>

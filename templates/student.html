@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Answer</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 28px 20px; }
+
+    .question-text { font-size: 22px; font-weight: 700; color: #222; margin-bottom: 28px; line-height: 1.3; }
+
+    /* Waiting / thank-you states */
+    .centered { text-align: center; margin-top: 80px; color: #888; }
+    .centered .icon { font-size: 48px; margin-bottom: 12px; }
+    .centered h2 { font-size: 22px; color: #444; margin: 0 0 8px; }
+    .centered p { font-size: 15px; margin: 0; }
+
+    /* Rating buttons */
+    .rating-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+    .rating-btn {
+      width: 64px; height: 64px; font-size: 22px; font-weight: 700;
+      border: 2px solid #d0d0d0; border-radius: 10px; background: #fff;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .rating-btn:hover, .rating-btn:focus { background: #4caf50; border-color: #4caf50; color: #fff; outline: none; }
+    .rating-scale-labels { display: flex; justify-content: space-between; margin-top: 8px;
+                           font-size: 12px; color: #999; }
+
+    /* Checkbox options */
+    .checkbox-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+    .checkbox-label {
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px; border: 2px solid #d0d0d0; border-radius: 10px;
+      font-size: 18px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+    .checkbox-label input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; flex-shrink: 0; accent-color: #4caf50; }
+    .checkbox-label:hover { border-color: #4caf50; background: #f4fff5; }
+
+    .submit-btn {
+      width: 100%; padding: 16px; font-size: 18px; font-weight: 700;
+      background: #4caf50; color: #fff; border: none; border-radius: 10px; cursor: pointer;
+    }
+    .submit-btn:hover { background: #43a047; }
+  </style>
+</head>
+<body>
+
+{% if not question %}
+  <div class="centered">
+    <div class="icon">⏳</div>
+    <h2>Waiting for a question…</h2>
+    <p>This page updates automatically.</p>
+  </div>
+  <script>
+    setInterval(() => {
+      fetch('/api/current').then(r => r.json()).then(d => {
+        if (d.question_id !== null) location.reload();
+      });
+    }, 2000);
+  </script>
+
+{% elif answered %}
+  <div class="centered">
+    <div class="icon">✅</div>
+    <h2>Thanks for your answer!</h2>
+    <p>Waiting for the next question…</p>
+  </div>
+  <script>
+    let knownQid = {{ question.id }};
+    setInterval(() => {
+      fetch('/api/current').then(r => r.json()).then(d => {
+        if (d.question_id !== knownQid) location.reload();
+      });
+    }, 2000);
+  </script>
+
+{% else %}
+  <div class="question-text">{{ question.text }}</div>
+
+  {% if question.type == 'rating' %}
+    <form action="/answer" method="post">
+      <div class="rating-grid">
+        {% for i in range(question.min, question.max + 1) %}
+        <button type="submit" name="rating" value="{{ i }}" class="rating-btn">{{ i }}</button>
+        {% endfor %}
+      </div>
+      <div class="rating-scale-labels">
+        <span>Not at all</span>
+        <span>Very confident</span>
+      </div>
+    </form>
+
+  {% elif question.type == 'checkbox' %}
+    <form action="/answer" method="post">
+      <div class="checkbox-group">
+        {% for opt in question.options %}
+        <label class="checkbox-label">
+          <input type="checkbox" name="options" value="{{ opt }}">
+          {{ opt }}
+        </label>
+        {% endfor %}
+      </div>
+      <button type="submit" class="submit-btn">Submit</button>
+    </form>
+  {% endif %}
+
+  <script>
+    let knownQid = {{ question.id }};
+    setInterval(() => {
+      fetch('/api/current').then(r => r.json()).then(d => {
+        if (d.question_id !== knownQid) location.reload();
+      });
+    }, 3000);
+  </script>
+{% endif %}
+
+</body>
+</html>
