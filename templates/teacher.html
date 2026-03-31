@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Teacher Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     * { box-sizing: border-box; }
     body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
@@ -46,19 +47,14 @@
     .btn-go { background: #ff7043; color: #fff; width: 100%; padding: 9px; font-size: 14px; }
 
     /* Results */
-    .results-card { min-height: 300px; }
+    .results-card { min-height: 340px; }
     .no-active { color: #aaa; font-style: italic; margin-top: 40px; text-align: center; }
     .q-text { font-size: 18px; font-weight: 600; margin-bottom: 6px; color: #222; }
     .total-count { font-size: 28px; font-weight: 700; color: #4caf50; }
     .total-label { font-size: 14px; color: #888; }
-
-    .bar-chart { margin-top: 20px; }
-    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
-    .bar-label { width: 170px; font-size: 14px; text-align: right; flex-shrink: 0; color: #333; }
-    .bar-track { flex: 1; background: #e8e8e8; border-radius: 5px; height: 30px; position: relative; overflow: hidden; }
-    .bar-fill  { height: 100%; border-radius: 5px; background: #4caf50; transition: width 0.4s ease; min-width: 0; }
-    .bar-count { position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-                 font-size: 13px; font-weight: 700; color: #333; }
+    .chart-wrap { position: relative; height: 280px; margin-top: 12px; }
+    .scale-labels { display: flex; justify-content: space-between;
+                    font-size: 12px; color: #999; margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -148,44 +144,153 @@
         .then(() => location.reload());
     }
 
+    let chart = null;
+    let activeQuestion = null;
+
+    function gaussianFit(labels, counts, total) {
+      // Compute mean and std from the response distribution
+      let sum = 0, sumSq = 0;
+      for (const label of labels) {
+        const v = parseFloat(label);
+        const c = counts[label] || 0;
+        sum += v * c;
+        sumSq += v * v * c;
+      }
+      const mean = sum / total;
+      const variance = sumSq / total - mean * mean;
+      const std = Math.sqrt(Math.max(variance, 0.25)); // clamp to avoid degenerate spike
+      // Scale so area under curve equals total (matches bar heights)
+      return labels.map(label => {
+        const v = parseFloat(label);
+        return Math.exp(-0.5 * ((v - mean) / std) ** 2) / (std * Math.sqrt(2 * Math.PI)) * total;
+      });
+    }
+
+    function buildChart(data) {
+      const ctx = document.getElementById('results-chart').getContext('2d');
+      const isRating = data.type === 'rating';
+      const barValues = data.labels.map(l => data.counts[l] || 0);
+
+      const datasets = [{
+        type: 'bar',
+        label: 'Responses',
+        data: barValues,
+        backgroundColor: 'rgba(76, 175, 80, 0.65)',
+        borderColor:  'rgba(76, 175, 80, 1)',
+        borderWidth: 1,
+        borderRadius: 3,
+        order: 2,
+      }];
+
+      if (isRating && data.total >= 3) {
+        datasets.push({
+          type: 'line',
+          label: 'Fitted curve',
+          data: gaussianFit(data.labels, data.counts, data.total),
+          borderColor: 'rgba(33, 150, 243, 0.85)',
+          backgroundColor: 'rgba(33, 150, 243, 0.08)',
+          borderWidth: 2.5,
+          pointRadius: 0,
+          tension: 0.4,
+          fill: true,
+          order: 1,
+        });
+      }
+
+      const scaleLabel = (data.label_min || data.label_max)
+        ? `← ${data.label_min || ''}   ${data.label_max || ''} →`
+        : undefined;
+
+      chart = new Chart(ctx, {
+        data: { labels: data.labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: isRating ? 'x' : 'y',
+          plugins: {
+            legend: { display: isRating && data.total >= 3 },
+          },
+          scales: {
+            x: isRating ? {
+              grid: { color: 'rgba(0,0,0,0.05)' },
+              title: { display: !!scaleLabel, text: scaleLabel, color: '#999', font: { size: 12 } },
+            } : {
+              beginAtZero: true,
+              ticks: { precision: 0 },
+              title: { display: true, text: 'Responses', color: '#888', font: { size: 12 } },
+              grid: { color: 'rgba(0,0,0,0.05)' },
+            },
+            y: isRating ? {
+              beginAtZero: true,
+              ticks: { precision: 0 },
+              title: { display: true, text: 'Count', color: '#888', font: { size: 12 } },
+              grid: { color: 'rgba(0,0,0,0.05)' },
+            } : {
+              grid: { display: false },
+            },
+          },
+          animation: { duration: 500 },
+        },
+      });
+    }
+
     function pollResults() {
       fetch('/api/results')
         .then(r => r.json())
         .then(data => {
           const el = document.getElementById('results-content');
+
           if (!data.active) {
+            if (chart) { chart.destroy(); chart = null; }
+            activeQuestion = null;
             el.innerHTML = '<p class="no-active">No question active — click "Ask this" to begin.</p>';
             return;
           }
 
-          const maxCount = Math.max(...Object.values(data.counts), 1);
-          let html = `
-            <div class="q-text">${data.question}</div>
-            <div style="margin-bottom:16px;">
-              <span class="total-count">${data.total}</span>
-              <span class="total-label"> response${data.total !== 1 ? 's' : ''}</span>
-            </div>
-            <div class="bar-chart">`;
+          // Rebuild container when question changes
+          if (data.question !== activeQuestion) {
+            activeQuestion = data.question;
+            if (chart) { chart.destroy(); chart = null; }
 
-          for (const label of data.labels) {
-            const count = data.counts[label] || 0;
-            const pct = Math.round(count / maxCount * 100);
-            html += `
-              <div class="bar-row">
-                <div class="bar-label">${label}</div>
-                <div class="bar-track">
-                  <div class="bar-fill" style="width:${pct}%"></div>
-                  <span class="bar-count">${count}</span>
-                </div>
-              </div>`;
+            const labelRow = (data.type === 'rating' && (data.label_min || data.label_max))
+              ? `<div class="scale-labels"><span>${data.label_min || ''}</span><span>${data.label_max || ''}</span></div>`
+              : '';
+
+            el.innerHTML = `
+              <div class="q-text">${data.question}</div>
+              <div style="margin-bottom:4px;">
+                <span class="total-count" id="resp-count">${data.total}</span>
+                <span class="total-label" id="resp-label"> response${data.total !== 1 ? 's' : ''}</span>
+              </div>
+              <div class="chart-wrap"><canvas id="results-chart"></canvas></div>
+              ${labelRow}`;
+
+            buildChart(data);
+            return;
           }
 
-          html += '</div>';
-          if (data.type === 'rating' && (data.label_min || data.label_max)) {
-            html += `<div style="display:flex;justify-content:space-between;font-size:12px;color:#999;margin-top:4px;">
-              <span>${data.label_min || ''}</span><span>${data.label_max || ''}</span></div>`;
+          // Live update — patch data, don't rebuild DOM
+          document.getElementById('resp-count').textContent = data.total;
+          document.getElementById('resp-label').textContent = ` response${data.total !== 1 ? 's' : ''}`;
+
+          chart.data.datasets[0].data = data.labels.map(l => data.counts[l] || 0);
+
+          if (data.type === 'rating' && data.total >= 3) {
+            const curve = gaussianFit(data.labels, data.counts, data.total);
+            if (chart.data.datasets.length > 1) {
+              chart.data.datasets[1].data = curve;
+            } else {
+              chart.data.datasets.push({
+                type: 'line', label: 'Fitted curve', data: curve,
+                borderColor: 'rgba(33, 150, 243, 0.85)',
+                backgroundColor: 'rgba(33, 150, 243, 0.08)',
+                borderWidth: 2.5, pointRadius: 0, tension: 0.4, fill: true, order: 1,
+              });
+              chart.options.plugins.legend.display = true;
+            }
           }
-          el.innerHTML = html;
+
+          chart.update();
         });
     }
 
