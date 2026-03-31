@@ -142,7 +142,7 @@ def main():
     parser.add_argument('--users', type=int, default=200,
                         help='Simulated users per question (default: 200)')
     parser.add_argument('--spread', type=float, default=4.0,
-                        help='Spread submissions over this many seconds (default: 8)')
+                        help='Spread submissions over this many seconds (default: 4)')
     args = parser.parse_args()
 
     base = args.url.rstrip('/')
