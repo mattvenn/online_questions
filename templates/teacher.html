@@ -145,6 +145,10 @@
       <a href="/export" style="text-decoration:none;">
         <button class="btn btn-export">Export results CSV</button>
       </a>
+
+      <!-- Reset answered cookies -->
+      <button class="btn" style="background:#ff7043;color:#fff;padding:10px 22px;font-size:15px;width:100%;margin-top:8px;"
+              onclick="resetAnswered()">Reset answered state</button>
     </div>
 
     <!-- Live results -->
@@ -160,6 +164,11 @@
   </div>
 
   <script>
+    function resetAnswered() {
+      fetch('/api/reset_answered', { method: 'POST' })
+        .then(() => alert('Done — all students can answer again.'));
+    }
+
     function activate(idx) {
       fetch('/api/activate/' + idx, { method: 'POST' })
         .then(() => location.reload());

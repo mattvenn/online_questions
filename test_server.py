@@ -256,6 +256,12 @@ class TestImpromptuQuestions:
         ids = [q['id'] for q in server.questions]
         assert len(ids) == len(set(ids))
 
+    def test_add_rating_default_min_max(self, client):
+        client.post('/api/add_question', json={'text': 'Rate it', 'type': 'rating'})
+        q = server.questions[-1]
+        assert q['min'] == 1
+        assert q['max'] == 10
+
     def test_missing_text_rejected(self, client):
         r = client.post('/api/add_question', json={'type': 'rating'})
         assert r.status_code == 400
@@ -796,3 +802,50 @@ class TestAuth:
         # default client has no TEACHER_PASSWORD — teacher should be accessible
         r = client.get('/teacher')
         assert r.status_code == 200
+
+    def test_login_redirects_to_next_param(self, auth_client):
+        # accessing /teacher while logged out should redirect back after login
+        r = auth_client.get('/teacher')
+        assert '/teacher/login?next=' in r.headers['Location']
+        _login(auth_client, password='secret')
+        r = auth_client.get('/teacher', follow_redirects=True)
+        assert r.status_code == 200
+        assert b'Teacher Dashboard' in r.data
+
+
+# ── reset answered ─────────────────────────────────────────────────────────────
+
+class TestResetAnswered:
+    def test_clears_responses(self, client):
+        _activate(client, 0)
+        client.post('/answer', data={'rating': '7'})
+        assert server.responses != {}
+        client.post('/api/reset_answered')
+        assert server.responses == {}
+
+    def test_increments_cookie_round(self, client):
+        before = server.cookie_round
+        client.post('/api/reset_answered')
+        assert server.cookie_round == before + 1
+
+    def test_old_answered_cookie_ignored_after_reset(self, client):
+        _activate(client, 0)
+        # submit answer — sets cookie for current round
+        client.post('/answer', data={'rating': '7'})
+        r = client.get('/')
+        assert b'Thanks for your answer' in r.data
+        # reset — cookie round changes
+        client.post('/api/reset_answered')
+        _activate(client, 0)
+        # student page should show the question again, not "thanks"
+        r = client.get('/')
+        assert b'Thanks for your answer' not in r.data
+        assert b'type="range"' in r.data
+
+    def test_returns_ok(self, client):
+        r = client.post('/api/reset_answered')
+        assert r.get_json()['ok'] is True
+
+    def test_requires_auth_when_password_set(self, auth_client):
+        r = auth_client.post('/api/reset_answered')
+        assert r.status_code == 302

@@ -20,6 +20,7 @@ with open('questions.json') as f:
 
 current_idx = -1  # -1 = no active question
 responses = {}    # str(question_id) -> list of {answer, timestamp}
+cookie_round = 0  # increment to invalidate all "answered" cookies
 
 
 def get_local_ip():
@@ -81,7 +82,7 @@ def teacher_logout():
 @app.route('/')
 def student():
     q = questions[current_idx] if current_idx >= 0 else None
-    answered = bool(q and request.cookies.get(f'answered_{q["id"]}'))
+    answered = bool(q and request.cookies.get(f'answered_{q["id"]}_r{cookie_round}'))
     return render_template('student.html', question=q, answered=answered)
 
 
@@ -115,7 +116,7 @@ def submit_answer():
             })
 
     resp = make_response(redirect('/'))
-    resp.set_cookie(f'answered_{q["id"]}', '1', max_age=7200)
+    resp.set_cookie(f'answered_{q["id"]}_r{cookie_round}', '1', max_age=7200)
     return resp
 
 
@@ -183,6 +184,15 @@ def deactivate():
     global current_idx
     current_idx = -1
     return jsonify({'ok': True})
+
+
+@app.route('/api/reset_answered', methods=['POST'])
+@login_required
+def reset_answered():
+    global cookie_round
+    cookie_round += 1
+    responses.clear()
+    return jsonify({'ok': True, 'cookie_round': cookie_round})
 
 
 @app.route('/api/results')
