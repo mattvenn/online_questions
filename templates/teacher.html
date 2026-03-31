@@ -376,7 +376,7 @@
     }
 
     pollResults();
-    setInterval(pollResults, 2000);
+    setInterval(pollResults, 1000);
 
     function saveQuestions() {
       fetch('/api/save_questions', { method: 'POST' })
