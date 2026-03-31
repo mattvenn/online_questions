@@ -4,27 +4,24 @@
 
 Allow a workshop leader to ask a question to a virtual audience like "how confident are you with Verilog" and as the audience answers, the results are visible immediately as a graph on screen.
 
-## Description 
-* Allow attendees to an online workshop answer questions quickly by:
-	* scanning a qr code with their phone or clicking a link
-	* the types of questions:
-		* multiple choice of 5 things
-		* a rating from 1 to 10
-		* checkboxes
-		* free text
-	* as people answer, the results are visible on a dashboard that can be shared onscreen
-		* a % of people who have answered and some other stats are shown
-		* window to answer closes after some time
-* History is stored and easily exported
-* Questions can be queued via a simple interface or read in a csv/spreadsheet
+## Description
+* Allow attendees to an online workshop to answer questions quickly by:
+	* scanning a QR code with their phone or clicking a link
+	* the types of questions supported:
+		* multiple choice (pick one)
+		* a rating from 1 to 10 (or any range)
+		* checkboxes (multi-select)
+	* as people answer, results are visible live on a dashboard that can be shared on screen
+		* total response count is shown and updates every second
+* Results are stored in memory and exportable as CSV
+* Questions are pre-loaded from `questions.json` or added live from the teacher dashboard
 * On the spur of the moment a new question can be asked
 
 ## Implementation
 
-* Should be hosted on a digital ocean style droplet with Linux as OS
-* served via nginx
-* simple webpages with a simple style and very fast loading
-* installable as a pip python package
+* Hosted on a Linux server (e.g. DigitalOcean droplet)
+* Served via nginx → gunicorn
+* Simple webpages with minimal dependencies and fast loading
 
 ## Takes inspiration from 
 
@@ -64,7 +61,32 @@ Injects 200 fake responses for each question (bell-curve distribution for rating
 venv/bin/pytest test_server.py -v
 ```
 
-91 tests covering all endpoints, question types, validation, CSV export, and bulk data helpers.
+109 tests covering all endpoints, question types, validation, CSV export, and bulk data helpers.
+
+### Load test against a live server
+
+Simulates a crowd of students answering questions in real time. You control the
+pacing from the teacher dashboard; the script detects each new question
+automatically.
+
+```bash
+venv/bin/python load_test.py
+```
+
+Defaults to `https://test.mattvenn.net`, 200 users per question, responses
+spread over 4 seconds. Override any of these:
+
+```bash
+venv/bin/python load_test.py --url https://your-server.example.com --users 50 --spread 8
+```
+
+**Workflow:**
+
+1. Start the script — it prints `Waiting for a question…` and checks the student page is reachable.
+2. On the teacher dashboard, click **Ask this** for the first question.
+3. The script fires responses and prints a summary (`✓ 200 submitted, 0 errors`).
+4. Click **Stop** or **Ask this** on the next question to advance.
+5. Repeat for each question. Press `Ctrl-C` to quit.
 
 ### Questions
 
