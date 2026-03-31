@@ -224,6 +224,44 @@ class TestAPIActivation:
         assert r.get_json()['current_idx'] == 0
 
 
+# ── delete question ────────────────────────────────────────────────────────────
+
+class TestDeleteQuestion:
+    def test_delete_removes_question(self, client):
+        original_count = len(server.questions)
+        client.post('/api/delete_question/0')
+        assert len(server.questions) == original_count - 1
+
+    def test_delete_removes_correct_question(self, client):
+        second_text = server.questions[1]['text']
+        client.post('/api/delete_question/0')
+        assert server.questions[0]['text'] == second_text
+
+    def test_delete_returns_ok(self, client):
+        r = client.post('/api/delete_question/0')
+        assert r.get_json()['ok'] is True
+
+    def test_delete_out_of_range_is_noop(self, client):
+        original_count = len(server.questions)
+        client.post('/api/delete_question/999')
+        assert len(server.questions) == original_count
+
+    def test_delete_active_question_deactivates(self, client):
+        _activate(client, 1)
+        client.post('/api/delete_question/1')
+        assert server.current_idx == -1
+
+    def test_delete_before_active_adjusts_idx(self, client):
+        _activate(client, 2)
+        client.post('/api/delete_question/0')
+        assert server.current_idx == 1
+
+    def test_delete_after_active_leaves_idx_unchanged(self, client):
+        _activate(client, 0)
+        client.post('/api/delete_question/1')
+        assert server.current_idx == 0
+
+
 # ── impromptu questions ────────────────────────────────────────────────────────
 
 class TestImpromptuQuestions:

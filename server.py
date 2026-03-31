@@ -191,6 +191,19 @@ def deactivate():
     return jsonify({'ok': True})
 
 
+@app.route('/api/delete_question/<int:idx>', methods=['POST'])
+@login_required
+def delete_question(idx):
+    global current_idx
+    if 0 <= idx < len(questions):
+        questions.pop(idx)
+        if current_idx == idx:
+            current_idx = -1
+        elif current_idx > idx:
+            current_idx -= 1
+    return jsonify({'ok': True})
+
+
 @app.route('/api/reset_answered', methods=['POST'])
 @login_required
 def reset_answered():

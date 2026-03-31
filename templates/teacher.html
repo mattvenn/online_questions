@@ -30,6 +30,8 @@
     .btn { border: none; border-radius: 6px; padding: 7px 14px; font-size: 13px; cursor: pointer; font-weight: 600; }
     .btn-ask  { background: #4caf50; color: #fff; }
     .btn-stop { background: #e53935; color: #fff; }
+    .btn-delete { background: none; border: none; cursor: pointer; color: #bbb; font-size: 16px; padding: 2px 4px; line-height: 1; float: right; }
+    .btn-delete:hover { color: #e53935; }
     .btn-export { background: #1976d2; color: #fff; padding: 10px 22px; font-size: 15px; width: 100%; }
     .btn-file   { background: #546e7a; color: #fff; font-size: 13px; }
     .btn-impromptu { background: #ff7043; color: #fff; padding: 10px 22px; font-size: 15px; width: 100%; }
@@ -82,6 +84,7 @@
         {% for q in questions %}
         {% set i = loop.index0 %}
         <div class="q-item {% if i == current_idx %}active{% endif %}">
+          <button class="btn-delete" onclick="deleteQuestion({{ i }})" title="Remove question">&#x2715;</button>
           <h3>{{ q.text }}</h3>
           <div class="q-meta">
             {{ q.type }}{% if q.type == 'rating' %} · {{ q.min }}–{{ q.max }}{% endif %}
@@ -98,7 +101,7 @@
 
       <!-- Impromptu question -->
       <div class="card">
-        <button class="btn btn-impromptu" onclick="toggleImpForm()">+ Ask impromptu question</button>
+        <button class="btn btn-impromptu" onclick="toggleImpForm()">+ Add new question</button>
         <div class="impromptu-form" id="imp-form">
           <div style="margin-top:12px;">
             <textarea id="imp-text" class="imp-field" rows="2" placeholder="Question text…"></textarea>
@@ -176,6 +179,12 @@
 
     function deactivate() {
       fetch('/api/deactivate', { method: 'POST' })
+        .then(() => location.reload());
+    }
+
+    function deleteQuestion(idx) {
+      if (!confirm('Remove this question?')) return;
+      fetch('/api/delete_question/' + idx, { method: 'POST' })
         .then(() => location.reload());
     }
 
