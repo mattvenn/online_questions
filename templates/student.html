@@ -76,11 +76,13 @@
     <p>This page updates automatically.</p>
   </div>
   <script>
-    setInterval(() => {
+    function checkCurrent() {
       fetch('/api/current').then(r => r.json()).then(d => {
         if (d.question_id !== null) location.reload();
       });
-    }, 2000);
+    }
+    setInterval(checkCurrent, 2000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkCurrent(); });
   </script>
 
 {% elif answered %}
@@ -91,11 +93,13 @@
   </div>
   <script>
     let knownQid = {{ question.id }};
-    setInterval(() => {
+    function checkCurrent() {
       fetch('/api/current').then(r => r.json()).then(d => {
         if (d.question_id !== knownQid) location.reload();
       });
-    }, 2000);
+    }
+    setInterval(checkCurrent, 2000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkCurrent(); });
   </script>
 
 {% else %}
@@ -155,11 +159,13 @@
 
   <script>
     let knownQid = {{ question.id }};
-    setInterval(() => {
+    function checkCurrent() {
       fetch('/api/current').then(r => r.json()).then(d => {
         if (d.question_id !== knownQid) location.reload();
       });
-    }, 3000);
+    }
+    setInterval(checkCurrent, 3000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkCurrent(); });
   </script>
 {% endif %}
 
