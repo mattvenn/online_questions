@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, make_response, redirect, session, url_for
+from flask import Flask, render_template, request, jsonify, make_response, redirect, session, url_for, send_from_directory
 from functools import wraps
 import json
 import csv
@@ -14,6 +14,11 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 PORT = int(os.environ.get('PORT', 5001))
 TEACHER_PASSWORD = os.environ.get('TEACHER_PASSWORD', '')
+
+@app.route('/logos/<path:filename>')
+def serve_logos(filename):
+    return send_from_directory('logos', filename)
+
 
 with open('questions.json') as f:
     questions = json.load(f)
