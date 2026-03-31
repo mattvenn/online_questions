@@ -77,7 +77,7 @@
           <h3>{{ q.text }}</h3>
           <div class="q-meta">
             {{ q.type }}{% if q.type == 'rating' %} · {{ q.min }}–{{ q.max }}{% endif %}
-            {% if q.type == 'checkbox' %} · {{ q.options | length }} options{% endif %}
+            {% if q.type in ('checkbox', 'multiple_choice') %} · {{ q.options | length }} options{% endif %}
           </div>
           {% if i == current_idx %}
           <button class="btn btn-stop" onclick="deactivate()">Stop</button>
@@ -97,7 +97,8 @@
             <div class="imp-row">
               <select id="imp-type" onchange="updateImpType()">
                 <option value="rating">Rating (1–10)</option>
-                <option value="checkbox">Checkboxes</option>
+                <option value="checkbox">Checkboxes (multi-select)</option>
+                <option value="multiple_choice">Multiple choice (pick one)</option>
               </select>
             </div>
             <div id="imp-rating-labels">
@@ -144,6 +145,11 @@
         .then(() => location.reload());
     }
 
+    const PIE_COLORS = [
+      'rgba(76,175,80,0.8)', 'rgba(33,150,243,0.8)', 'rgba(255,112,67,0.8)',
+      'rgba(156,39,176,0.8)', 'rgba(255,193,7,0.8)', 'rgba(0,188,212,0.8)',
+    ];
+
     let chart = null;
     let activeQuestion = null;
 
@@ -168,6 +174,42 @@
 
     function buildChart(data) {
       const ctx = document.getElementById('results-chart').getContext('2d');
+
+      if (data.type === 'multiple_choice') {
+        const values = data.labels.map(l => data.counts[l] || 0);
+        chart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: data.labels,
+            datasets: [{
+              data: values,
+              backgroundColor: PIE_COLORS.slice(0, data.labels.length),
+              borderColor: '#fff',
+              borderWidth: 3,
+              hoverOffset: 8,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: true, position: 'right', labels: { font: { size: 14 } } },
+              tooltip: {
+                callbacks: {
+                  label: ctx => {
+                    const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                    const pct = total > 0 ? Math.round(ctx.raw / total * 100) : 0;
+                    return `  ${ctx.label}: ${ctx.raw} (${pct}%)`;
+                  },
+                },
+              },
+            },
+            animation: { duration: 500 },
+          },
+        });
+        return;
+      }
+
       const isRating = data.type === 'rating';
       const barValues = data.labels.map(l => data.counts[l] || 0);
 
@@ -275,6 +317,11 @@
 
           chart.data.datasets[0].data = data.labels.map(l => data.counts[l] || 0);
 
+          if (data.type === 'multiple_choice') {
+            chart.update();
+            return;
+          }
+
           if (data.type === 'rating' && data.total >= 3) {
             const curve = gaussianFit(data.labels, data.counts, data.total);
             if (chart.data.datasets.length > 1) {
@@ -303,7 +350,8 @@
 
     function updateImpType() {
       const t = document.getElementById('imp-type').value;
-      document.getElementById('imp-checkbox-opts').style.display = t === 'checkbox' ? 'block' : 'none';
+      document.getElementById('imp-checkbox-opts').style.display =
+        (t === 'checkbox' || t === 'multiple_choice') ? 'block' : 'none';
       document.getElementById('imp-rating-labels').style.display = t === 'rating' ? 'block' : 'none';
     }
 
@@ -317,7 +365,7 @@
         body.label_min = document.getElementById('imp-label-min').value.trim();
         body.label_max = document.getElementById('imp-label-max').value.trim();
       }
-      if (type === 'checkbox') {
+      if (type === 'checkbox' || type === 'multiple_choice') {
         const opts = document.getElementById('imp-opts').value
           .split('\n').map(s => s.trim()).filter(Boolean);
         if (!opts.length) { alert('Please enter at least one option.'); return; }

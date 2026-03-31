@@ -13,5 +13,11 @@
     "text": "Pick all that apply",
     "type": "checkbox",
     "options": ["written an app", "coded a website", "designed a chip"]
+  },
+  {
+    "id": 3,
+    "text": "What is your background?",
+    "type": "multiple_choice",
+    "options": ["academic", "industry", "hobbyist"]
   }
 ]

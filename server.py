@@ -73,6 +73,13 @@ def submit_answer():
                 'answer': values,
                 'timestamp': datetime.now().isoformat()
             })
+    elif q['type'] == 'multiple_choice':
+        value = request.form.get('option', '').strip()
+        if value and value in q['options']:
+            responses.setdefault(qid, []).append({
+                'answer': value,
+                'timestamp': datetime.now().isoformat()
+            })
 
     resp = make_response(redirect('/'))
     resp.set_cookie(f'answered_{q["id"]}', '1', max_age=7200)
@@ -104,7 +111,7 @@ def add_question():
     data = request.get_json()
     q_type = data.get('type')
     text = data.get('text', '').strip()
-    if not text or q_type not in ('rating', 'checkbox'):
+    if not text or q_type not in ('rating', 'checkbox', 'multiple_choice'):
         return jsonify({'ok': False, 'error': 'invalid input'}), 400
 
     new_id = max((q['id'] for q in questions), default=0) + 1
@@ -114,7 +121,7 @@ def add_question():
         q['max'] = int(data.get('max', 10))
         q['label_min'] = data.get('label_min', '')
         q['label_max'] = data.get('label_max', '')
-    elif q_type == 'checkbox':
+    elif q_type in ('checkbox', 'multiple_choice'):
         opts = [o.strip() for o in data.get('options', []) if o.strip()]
         if not opts:
             return jsonify({'ok': False, 'error': 'need at least one option'}), 400
@@ -180,6 +187,20 @@ def api_results():
             'total': total
         })
 
+    elif q['type'] == 'multiple_choice':
+        counts = {opt: 0 for opt in q['options']}
+        for e in entries:
+            if e['answer'] in counts:
+                counts[e['answer']] += 1
+        return jsonify({
+            'active': True,
+            'type': 'multiple_choice',
+            'question': q['text'],
+            'labels': q['options'],
+            'counts': counts,
+            'total': total
+        })
+
     return jsonify({'active': False})
 
 
@@ -227,6 +248,12 @@ def preload_test_data(n=200, seed=42):
                 if not chosen:
                     chosen = [q['options'][0]]
                 entries.append({'answer': chosen, 'timestamp': ts})
+        elif q['type'] == 'multiple_choice':
+            weights = [0.5 - i * (0.4 / max(len(q['options']) - 1, 1))
+                       for i in range(len(q['options']))]
+            for _ in range(n):
+                entries.append({'answer': rng.choices(q['options'], weights=weights)[0],
+                                'timestamp': ts})
         responses[qid] = entries
     current_idx = 0
 

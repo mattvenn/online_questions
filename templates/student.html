@@ -51,6 +51,15 @@
     .checkbox-label input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; flex-shrink: 0; accent-color: #4caf50; }
     .checkbox-label:hover { border-color: #4caf50; background: #f4fff5; }
 
+    /* Multiple choice */
+    .mc-btn {
+      display: block; width: 100%; padding: 18px 20px; margin-bottom: 10px;
+      font-size: 18px; font-weight: 500; text-align: left;
+      background: #fff; border: 2px solid #d0d0d0; border-radius: 10px;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .mc-btn:hover, .mc-btn:focus { background: #4caf50; border-color: #4caf50; color: #fff; outline: none; }
+
     .submit-btn {
       width: 100%; padding: 16px; font-size: 18px; font-weight: 700;
       background: #4caf50; color: #fff; border: none; border-radius: 10px; cursor: pointer;
@@ -122,6 +131,13 @@
       const sl = document.getElementById('rating-slider');
       sl.style.setProperty('--pct', '0%');
     </script>
+
+  {% elif question.type == 'multiple_choice' %}
+    <form action="/answer" method="post">
+      {% for opt in question.options %}
+      <button type="submit" name="option" value="{{ opt }}" class="mc-btn">{{ opt }}</button>
+      {% endfor %}
+    </form>
 
   {% elif question.type == 'checkbox' %}
     <form action="/answer" method="post">

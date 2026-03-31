@@ -279,6 +279,114 @@ class TestImpromptuQuestions:
                               'options': ['  ', '']})
         assert r.status_code == 400
 
+    def test_add_multiple_choice_question(self, client):
+        r = client.post('/api/add_question',
+                        json={'text': 'Favourite language?', 'type': 'multiple_choice',
+                              'options': ['Python', 'Rust', 'C']})
+        assert r.get_json()['ok'] is True
+        assert server.questions[-1]['type'] == 'multiple_choice'
+        assert server.questions[-1]['options'] == ['Python', 'Rust', 'C']
+
+    def test_empty_multiple_choice_options_rejected(self, client):
+        r = client.post('/api/add_question',
+                        json={'text': 'Pick', 'type': 'multiple_choice', 'options': []})
+        assert r.status_code == 400
+
+    def test_impromptu_js_collects_options_for_multiple_choice(self):
+        """
+        Regression: submitImpromtu() collected options only for 'checkbox',
+        so multiple_choice POSTed without options and got a 400 from the server.
+        The condition guarding body.options = ... must include multiple_choice.
+        """
+        with open('templates/teacher.html') as f:
+            src = f.read()
+        opts_pos = src.index('body.options')
+        condition = src[src.rindex('if (type', 0, opts_pos):opts_pos]
+        assert 'multiple_choice' in condition, (
+            "submitImpromtu() does not collect options for multiple_choice"
+        )
+
+
+# ── multiple choice ────────────────────────────────────────────────────────────
+
+MC_IDX = 2   # index of the multiple_choice question in questions.json
+
+class TestMultipleChoice:
+    def test_student_page_shows_mc_options(self, client):
+        _activate(client, MC_IDX)
+        r = client.get('/')
+        assert b'academic' in r.data
+        assert b'industry' in r.data
+        assert b'hobbyist' in r.data
+
+    def test_mc_renders_as_buttons_not_checkboxes(self, client):
+        _activate(client, MC_IDX)
+        r = client.get('/')
+        # CSS has input[type="..."] selectors but no actual input elements in MC
+        assert b'<input type="checkbox"' not in r.data
+        assert b'<input type="range"' not in r.data
+        # Each option rendered as a named submit button
+        for opt in server.questions[MC_IDX]['options']:
+            assert f'name="option" value="{opt}"'.encode() in r.data
+
+    def test_submit_valid_mc_answer(self, client):
+        _activate(client, MC_IDX)
+        client.post('/answer', data={'option': 'academic'})
+        qid = str(server.questions[MC_IDX]['id'])
+        assert server.responses[qid][0]['answer'] == 'academic'
+
+    def test_submit_mc_stores_timestamp(self, client):
+        _activate(client, MC_IDX)
+        client.post('/answer', data={'option': 'industry'})
+        qid = str(server.questions[MC_IDX]['id'])
+        assert 'timestamp' in server.responses[qid][0]
+
+    def test_invalid_mc_option_ignored(self, client):
+        _activate(client, MC_IDX)
+        client.post('/answer', data={'option': 'not_a_valid_option'})
+        assert server.responses == {}
+
+    def test_empty_mc_option_ignored(self, client):
+        _activate(client, MC_IDX)
+        client.post('/answer', data={})
+        assert server.responses == {}
+
+    def test_mc_results_api_counts(self, client):
+        _activate(client, MC_IDX)
+        for opt in ['academic', 'industry', 'academic', 'hobbyist', 'academic']:
+            client.post('/answer', data={'option': opt})
+        data = client.get('/api/results').get_json()
+        assert data['active'] is True
+        assert data['type'] == 'multiple_choice'
+        assert data['total'] == 5
+        assert data['counts']['academic'] == 3
+        assert data['counts']['industry'] == 1
+        assert data['counts']['hobbyist'] == 1
+
+    def test_mc_results_all_options_present_when_empty(self, client):
+        _activate(client, MC_IDX)
+        data = client.get('/api/results').get_json()
+        assert set(data['labels']) == {'academic', 'industry', 'hobbyist'}
+        assert all(v == 0 for v in data['counts'].values())
+
+    def test_mc_response_in_export(self, client):
+        _activate(client, MC_IDX)
+        client.post('/answer', data={'option': 'industry'})
+        r = client.get('/export')
+        rows = list(csv.reader(io.StringIO(r.data.decode())))
+        mc_row = next(row for row in rows[1:] if row[2] == 'multiple_choice')
+        assert mc_row[3] == 'industry'
+
+    def test_bulk_mc(self, client):
+        entries = bulk_multiple_choice(idx=MC_IDX, n=300)
+        assert len(entries) == 300
+        data = client.get('/api/results').get_json()
+        assert data['total'] == 300
+        # First option should be most popular given skewed weights
+        counts = data['counts']
+        opts = server.questions[MC_IDX]['options']
+        assert counts[opts[0]] > counts[opts[1]]
+
 
 # ── CSV export ─────────────────────────────────────────────────────────────────
 
@@ -368,6 +476,24 @@ def bulk_rating(idx=0, n=200, seed=42):
     return entries
 
 
+def bulk_multiple_choice(idx=2, n=200, seed=42):
+    """
+    Inject n fake multiple-choice responses (one option per response).
+    First option is most popular.
+    """
+    import random as _random
+    rng = _random.Random(seed)
+    server.current_idx = idx
+    q = server.questions[idx]
+    weights = [0.5 - i * (0.4 / max(len(q['options']) - 1, 1))
+               for i in range(len(q['options']))]
+    entries = [{'answer': rng.choices(q['options'], weights=weights)[0],
+                'timestamp': '2026-01-01T00:00:00'}
+               for _ in range(n)]
+    server.responses[str(q['id'])] = entries
+    return entries
+
+
 def bulk_checkbox(idx=1, n=200, seed=42):
     """
     Inject n fake checkbox responses with a skewed distribution
@@ -428,6 +554,16 @@ class TestBulkHelpers:
         data = client.get('/api/results').get_json()
         assert data['total'] == 200
         assert data['active'] is True
+
+    def test_bulk_multiple_choice_count(self, client):
+        assert len(bulk_multiple_choice(idx=2, n=200)) == 200
+
+    def test_bulk_multiple_choice_first_option_most_popular(self, client):
+        bulk_multiple_choice(idx=2, n=300)
+        data = client.get('/api/results').get_json()
+        counts = data['counts']
+        opts = server.questions[2]['options']
+        assert counts[opts[0]] > counts[opts[-1]]
 
     def test_preload_test_data_fills_all_questions(self, client):
         server.preload_test_data(n=100)
