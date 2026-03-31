@@ -4,7 +4,9 @@
     "text": "How confident are you with Verilog?",
     "type": "rating",
     "min": 1,
-    "max": 10
+    "max": 10,
+    "label_min": "Not at all",
+    "label_max": "Very confident"
   },
   {
     "id": 2,

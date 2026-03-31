@@ -104,6 +104,12 @@
                 <option value="checkbox">Checkboxes</option>
               </select>
             </div>
+            <div id="imp-rating-labels">
+              <div class="imp-row">
+                <input id="imp-label-min" class="imp-field" style="margin:0;" placeholder="Low end label (e.g. Not at all)">
+                <input id="imp-label-max" class="imp-field" style="margin:0;" placeholder="High end label (e.g. Expert)">
+              </div>
+            </div>
             <div id="imp-checkbox-opts" style="display:none;">
               <div class="imp-hint">One option per line:</div>
               <textarea id="imp-opts" class="imp-field" rows="4" placeholder="option 1&#10;option 2&#10;option 3"></textarea>
@@ -175,6 +181,10 @@
           }
 
           html += '</div>';
+          if (data.type === 'rating' && (data.label_min || data.label_max)) {
+            html += `<div style="display:flex;justify-content:space-between;font-size:12px;color:#999;margin-top:4px;">
+              <span>${data.label_min || ''}</span><span>${data.label_max || ''}</span></div>`;
+          }
           el.innerHTML = html;
         });
     }
@@ -189,6 +199,7 @@
     function updateImpType() {
       const t = document.getElementById('imp-type').value;
       document.getElementById('imp-checkbox-opts').style.display = t === 'checkbox' ? 'block' : 'none';
+      document.getElementById('imp-rating-labels').style.display = t === 'rating' ? 'block' : 'none';
     }
 
     function submitImpromtu() {
@@ -197,6 +208,10 @@
       if (!text) { alert('Please enter a question.'); return; }
 
       const body = { text, type };
+      if (type === 'rating') {
+        body.label_min = document.getElementById('imp-label-min').value.trim();
+        body.label_max = document.getElementById('imp-label-max').value.trim();
+      }
       if (type === 'checkbox') {
         const opts = document.getElementById('imp-opts').value
           .split('\n').map(s => s.trim()).filter(Boolean);

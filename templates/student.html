@@ -16,16 +16,29 @@
     .centered h2 { font-size: 22px; color: #444; margin: 0 0 8px; }
     .centered p { font-size: 15px; margin: 0; }
 
-    /* Rating buttons */
-    .rating-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-    .rating-btn {
-      width: 64px; height: 64px; font-size: 22px; font-weight: 700;
-      border: 2px solid #d0d0d0; border-radius: 10px; background: #fff;
-      cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s;
+    /* Rating slider */
+    .slider-wrap { padding: 10px 4px 0; }
+    .slider-value { text-align: center; font-size: 52px; font-weight: 700; color: #4caf50;
+                    line-height: 1; margin-bottom: 16px; }
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 8px; border-radius: 4px;
+      background: linear-gradient(to right, #4caf50 0%, #4caf50 var(--pct, 0%), #d0d0d0 var(--pct, 0%), #d0d0d0 100%);
+      outline: none; cursor: pointer;
     }
-    .rating-btn:hover, .rating-btn:focus { background: #4caf50; border-color: #4caf50; color: #fff; outline: none; }
-    .rating-scale-labels { display: flex; justify-content: space-between; margin-top: 8px;
-                           font-size: 12px; color: #999; }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #4caf50; border: 3px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,.3); cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #4caf50; border: 3px solid #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,.3); cursor: pointer;
+    }
+    .slider-scale-labels { display: flex; justify-content: space-between; margin-top: 8px;
+                            font-size: 13px; color: #999; }
 
     /* Checkbox options */
     .checkbox-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
@@ -80,17 +93,35 @@
   <div class="question-text">{{ question.text }}</div>
 
   {% if question.type == 'rating' %}
-    <form action="/answer" method="post">
-      <div class="rating-grid">
-        {% for i in range(question.min, question.max + 1) %}
-        <button type="submit" name="rating" value="{{ i }}" class="rating-btn">{{ i }}</button>
-        {% endfor %}
+    <form action="/answer" method="post" id="rating-form">
+      <input type="hidden" name="rating" id="rating-val" value="{{ question.min }}">
+      <div class="slider-wrap">
+        <div class="slider-value" id="slider-display">{{ question.min }}</div>
+        <input type="range"
+               id="rating-slider"
+               min="{{ question.min }}"
+               max="{{ question.max }}"
+               value="{{ question.min }}"
+               oninput="updateSlider(this)">
+        <div class="slider-scale-labels">
+          <span>{{ question.label_min or question.min }}</span>
+          <span>{{ question.label_max or question.max }}</span>
+        </div>
       </div>
-      <div class="rating-scale-labels">
-        <span>Not at all</span>
-        <span>Very confident</span>
-      </div>
+      <button type="submit" class="submit-btn" style="margin-top:28px;">Submit</button>
     </form>
+    <script>
+      function updateSlider(el) {
+        const v = el.value;
+        const pct = (v - el.min) / (el.max - el.min) * 100;
+        el.style.setProperty('--pct', pct + '%');
+        document.getElementById('slider-display').textContent = v;
+        document.getElementById('rating-val').value = v;
+      }
+      // init fill on load
+      const sl = document.getElementById('rating-slider');
+      sl.style.setProperty('--pct', '0%');
+    </script>
 
   {% elif question.type == 'checkbox' %}
     <form action="/answer" method="post">

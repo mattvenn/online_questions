@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify, make_response, redir
 import json
 import csv
 import io
+import random
 import qrcode as qrcode_lib
 import base64
 import socket
@@ -111,6 +112,8 @@ def add_question():
     if q_type == 'rating':
         q['min'] = int(data.get('min', 1))
         q['max'] = int(data.get('max', 10))
+        q['label_min'] = data.get('label_min', '')
+        q['label_max'] = data.get('label_max', '')
     elif q_type == 'checkbox':
         opts = [o.strip() for o in data.get('options', []) if o.strip()]
         if not opts:
@@ -156,6 +159,8 @@ def api_results():
             'type': 'rating',
             'question': q['text'],
             'labels': [str(i) for i in range(q['min'], q['max'] + 1)],
+            'label_min': q.get('label_min', ''),
+            'label_max': q.get('label_max', ''),
             'counts': counts,
             'total': total
         })
@@ -198,7 +203,43 @@ def export():
     return resp
 
 
+def preload_test_data(n=200, seed=42):
+    """Inject n fake responses for every question. Used by --preload and tests."""
+    global current_idx
+    rng = random.Random(seed)
+    ts = '2026-01-01T00:00:00'
+    for q in questions:
+        qid = str(q['id'])
+        entries = []
+        if q['type'] == 'rating':
+            lo, hi = q['min'], q['max']
+            mid = (lo + hi) / 2 + 1          # skew slightly above centre
+            for _ in range(n):
+                v = round(rng.gauss(mid, (hi - lo) / 5))
+                entries.append({'answer': max(lo, min(hi, v)), 'timestamp': ts})
+        elif q['type'] == 'checkbox':
+            # Weight options so the first is most chosen, last least
+            weights = [0.8 - i * (0.6 / max(len(q['options']) - 1, 1))
+                       for i in range(len(q['options']))]
+            for _ in range(n):
+                chosen = [opt for opt, w in zip(q['options'], weights)
+                          if rng.random() < w]
+                if not chosen:
+                    chosen = [q['options'][0]]
+                entries.append({'answer': chosen, 'timestamp': ts})
+        responses[qid] = entries
+    current_idx = 0
+
+
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--preload', action='store_true',
+                        help='Start with fake responses loaded for graph testing')
+    args = parser.parse_args()
+    if args.preload:
+        preload_test_data()
+        print(f"  Preloaded {len(questions)} questions with test data.")
     url = student_url()
     print(f"\n  Teacher dashboard : http://127.0.0.1:{PORT}/teacher")
     print(f"  Student URL (QR)  : {url}/\n")
