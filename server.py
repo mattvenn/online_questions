@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify, make_response, redirect
+from flask import Flask, render_template, request, jsonify, make_response, redirect, session, url_for
+from functools import wraps
 import json
 import csv
 import io
@@ -10,7 +11,9 @@ import socket
 from datetime import datetime
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 PORT = int(os.environ.get('PORT', 5001))
+TEACHER_PASSWORD = os.environ.get('TEACHER_PASSWORD', '')
 
 with open('questions.json') as f:
     questions = json.load(f)
@@ -43,6 +46,34 @@ def make_qr_base64(url):
 def student_url():
     base = os.environ.get('BASE_URL', '').rstrip('/')
     return base if base else f"http://{get_local_ip()}:{PORT}"
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if TEACHER_PASSWORD and not session.get('teacher_logged_in'):
+            return redirect(url_for('teacher_login', next=request.path))
+        return f(*args, **kwargs)
+    return decorated
+
+
+# --- Auth routes ---
+
+@app.route('/teacher/login', methods=['GET', 'POST'])
+def teacher_login():
+    error = None
+    if request.method == 'POST':
+        if request.form.get('password') == TEACHER_PASSWORD:
+            session['teacher_logged_in'] = True
+            return redirect(request.args.get('next') or url_for('teacher'))
+        error = 'Incorrect password'
+    return render_template('login.html', error=error)
+
+
+@app.route('/teacher/logout', methods=['POST'])
+def teacher_logout():
+    session.pop('teacher_logged_in', None)
+    return redirect(url_for('teacher_login'))
 
 
 # --- Student routes ---
@@ -97,6 +128,7 @@ def api_current():
 # --- Teacher routes ---
 
 @app.route('/teacher')
+@login_required
 def teacher():
     url = student_url()
     qr = make_qr_base64(url)
@@ -104,10 +136,12 @@ def teacher():
                            questions=questions,
                            current_idx=current_idx,
                            student_url=url,
-                           qr=qr)
+                           qr=qr,
+                           teacher_auth=bool(TEACHER_PASSWORD))
 
 
 @app.route('/api/add_question', methods=['POST'])
+@login_required
 def add_question():
     global current_idx
     data = request.get_json()
@@ -135,6 +169,7 @@ def add_question():
 
 
 @app.route('/api/activate/<int:idx>', methods=['POST'])
+@login_required
 def activate(idx):
     global current_idx
     if 0 <= idx < len(questions):
@@ -143,6 +178,7 @@ def activate(idx):
 
 
 @app.route('/api/deactivate', methods=['POST'])
+@login_required
 def deactivate():
     global current_idx
     current_idx = -1
@@ -207,6 +243,7 @@ def api_results():
 
 
 @app.route('/api/save_questions', methods=['POST'])
+@login_required
 def save_questions():
     with open('questions.json', 'w') as f:
         json.dump(questions, f, indent=2)
@@ -214,6 +251,7 @@ def save_questions():
 
 
 @app.route('/api/load_questions', methods=['POST'])
+@login_required
 def load_questions():
     global current_idx
     data = request.get_json()
@@ -233,6 +271,7 @@ def load_questions():
 
 
 @app.route('/export')
+@login_required
 def export():
     buf = io.StringIO()
     writer = csv.writer(buf)

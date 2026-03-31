@@ -721,3 +721,78 @@ class TestBulkHelpers:
     def test_preload_test_data_activates_first_question(self, client):
         server.preload_test_data()
         assert server.current_idx == 0
+
+
+# ── auth ───────────────────────────────────────────────────────────────────────
+
+@pytest.fixture
+def auth_client(monkeypatch):
+    """Test client with TEACHER_PASSWORD set to 'secret'."""
+    monkeypatch.setattr(server, 'TEACHER_PASSWORD', 'secret')
+    server.app.config['TESTING'] = True
+    with server.app.test_client() as c:
+        yield c
+
+
+def _login(client, password='secret'):
+    return client.post('/teacher/login', data={'password': password},
+                       follow_redirects=False)
+
+
+class TestAuth:
+    def test_teacher_redirects_to_login_when_password_set(self, auth_client):
+        r = auth_client.get('/teacher')
+        assert r.status_code == 302
+        assert '/teacher/login' in r.headers['Location']
+
+    def test_api_activate_redirects_when_not_logged_in(self, auth_client):
+        r = auth_client.post('/api/activate/0')
+        assert r.status_code == 302
+
+    def test_api_deactivate_redirects_when_not_logged_in(self, auth_client):
+        r = auth_client.post('/api/deactivate')
+        assert r.status_code == 302
+
+    def test_export_redirects_when_not_logged_in(self, auth_client):
+        r = auth_client.get('/export')
+        assert r.status_code == 302
+
+    def test_login_page_loads(self, auth_client):
+        r = auth_client.get('/teacher/login')
+        assert r.status_code == 200
+        assert b'Teacher Login' in r.data
+
+    def test_wrong_password_shows_error(self, auth_client):
+        r = _login(auth_client, password='wrong')
+        assert r.status_code == 200 or r.status_code == 302
+        # follow to check error message
+        r = auth_client.post('/teacher/login', data={'password': 'wrong'})
+        assert b'Incorrect password' in r.data
+
+    def test_correct_password_redirects_to_teacher(self, auth_client):
+        r = _login(auth_client, password='secret')
+        assert r.status_code == 302
+        assert '/teacher' in r.headers['Location']
+
+    def test_logged_in_can_access_teacher(self, auth_client):
+        _login(auth_client, password='secret')
+        r = auth_client.get('/teacher', follow_redirects=True)
+        assert r.status_code == 200
+        assert b'Teacher Dashboard' in r.data
+
+    def test_logged_in_can_use_api(self, auth_client):
+        _login(auth_client, password='secret')
+        r = auth_client.post('/api/activate/0')
+        assert r.status_code == 200
+
+    def test_logout_clears_session(self, auth_client):
+        _login(auth_client, password='secret')
+        auth_client.post('/teacher/logout')
+        r = auth_client.get('/teacher')
+        assert r.status_code == 302
+        assert '/teacher/login' in r.headers['Location']
+
+    def test_no_password_set_skips_auth(self, client):
+        # default client has no TEACHER_PASSWORD — teacher should be accessible
+        r = client.get('/teacher')
+        assert r.status_code == 200
