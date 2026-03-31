@@ -234,18 +234,44 @@ def load_questions():
 def export():
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(['question_id', 'question_text', 'type', 'answer', 'timestamp'])
-    for q in questions:
+    for i, q in enumerate(questions):
+        if i > 0:
+            writer.writerow([])
         qid = str(q['id'])
-        for entry in responses.get(qid, []):
-            ans = entry['answer']
-            if isinstance(ans, list):
-                ans = '; '.join(ans)
-            writer.writerow([q['id'], q['text'], q['type'], ans, entry['timestamp']])
+        entries = responses.get(qid, [])
+        total = len(entries)
+
+        if q['type'] == 'rating':
+            labels = [str(v) for v in range(q['min'], q['max'] + 1)]
+            counts = {l: 0 for l in labels}
+            for e in entries:
+                k = str(e['answer'])
+                if k in counts:
+                    counts[k] += 1
+            title = f'{q["text"]} ({q["type"]}, {total} responses)'
+        else:
+            labels = q['options']
+            counts = {opt: 0 for opt in labels}
+            for e in entries:
+                ans = e['answer']
+                targets = ans if isinstance(ans, list) else [ans]
+                for t in targets:
+                    if t in counts:
+                        counts[t] += 1
+            if q['type'] == 'checkbox':
+                selections = sum(counts.values())
+                title = (f'{q["text"]} (checkbox, {total} respondents, '
+                         f'{selections} selections total)')
+            else:
+                title = f'{q["text"]} (multiple_choice, {total} responses)'
+
+        writer.writerow([title])
+        for l in labels:
+            writer.writerow([l, counts[l]])
 
     resp = make_response(buf.getvalue())
     resp.headers['Content-Type'] = 'text/csv'
-    fname = f'results_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+    fname = f'summary_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
     resp.headers['Content-Disposition'] = f'attachment; filename={fname}'
     return resp
 

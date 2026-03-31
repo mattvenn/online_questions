@@ -372,10 +372,12 @@ class TestMultipleChoice:
     def test_mc_response_in_export(self, client):
         _activate(client, MC_IDX)
         client.post('/answer', data={'option': 'industry'})
-        r = client.get('/export')
-        rows = list(csv.reader(io.StringIO(r.data.decode())))
-        mc_row = next(row for row in rows[1:] if row[2] == 'multiple_choice')
-        assert mc_row[3] == 'industry'
+        rows = list(csv.reader(io.StringIO(client.get('/export').data.decode())))
+        q = server.questions[MC_IDX]
+        title_idx = next(i for i, r in enumerate(rows) if r and q['text'] in r[0])
+        data = {r[0]: r[1] for r in rows[title_idx + 1: title_idx + 1 + len(q['options'])]}
+        assert data['industry'] == '1'
+        assert data['academic'] == '0'
 
     def test_bulk_mc(self, client):
         entries = bulk_multiple_choice(idx=MC_IDX, n=300)
@@ -460,45 +462,117 @@ class TestQuestionsFile:
         assert server.questions == saved
 
 
-# ── CSV export ─────────────────────────────────────────────────────────────────
+# ── CSV export (summary format) ────────────────────────────────────────────────
+# Format per question: title row, labels row, counts row; blank line between questions.
+# Designed for paste-into-Google-Sheets → select 2 data rows → Insert chart.
 
 class TestExport:
-    def _parse_csv(self, client):
+    def _rows(self, client):
         r = client.get('/export')
         return list(csv.reader(io.StringIO(r.data.decode())))
 
-    def test_header_row(self, client):
-        rows = self._parse_csv(client)
-        assert rows[0] == ['question_id', 'question_text', 'type', 'answer', 'timestamp']
+    def test_content_type_is_csv(self, client):
+        assert 'text/csv' in client.get('/export').content_type
 
-    def test_empty_export_has_only_header(self, client):
-        assert len(self._parse_csv(client)) == 1
+    def test_filename_is_summary(self, client):
+        cd = client.get('/export').headers['Content-Disposition']
+        assert 'summary_' in cd
 
-    def test_rating_response_in_export(self, client):
+    def test_each_question_has_title_row(self, client):
+        rows = self._rows(client)
+        texts = [q['text'] for q in server.questions]
+        for text in texts:
+            assert any(text in row[0] for row in rows if row)
+
+    def test_title_row_includes_response_count(self, client):
         _activate(client, 0)
         client.post('/answer', data={'rating': '7'})
-        rows = self._parse_csv(client)
-        assert rows[1][2] == 'rating'
-        assert rows[1][3] == '7'
+        client.post('/answer', data={'rating': '5'})
+        rows = self._rows(client)
+        assert '2 responses' in rows[0][0]
 
-    def test_checkbox_response_joined_with_semicolon(self, client):
+    def test_checkbox_title_shows_respondents_and_selections(self, client):
+        _activate(client, 1)
+        # person 1 ticks 2 options, person 2 ticks 1 option → 2 respondents, 3 selections
+        client.post('/answer', data={'options': ['written an app', 'designed a chip']})
+        client.post('/answer', data={'options': ['coded a website']})
+        rows = self._rows(client)
+        q = server.questions[1]
+        title_idx = next(i for i, r in enumerate(rows) if r and q['text'] in r[0])
+        title = rows[title_idx][0]
+        assert '2 respondents' in title
+        assert '3 selections' in title
+
+    def test_mc_title_shows_responses_not_respondents(self, client):
+        _activate(client, MC_IDX)
+        client.post('/answer', data={'option': 'academic'})
+        rows = self._rows(client)
+        q = server.questions[MC_IDX]
+        title_idx = next(i for i, r in enumerate(rows) if r and q['text'] in r[0])
+        assert 'responses' in rows[title_idx][0]
+        assert 'respondents' not in rows[title_idx][0]
+
+    def test_rating_has_one_row_per_bucket(self, client):
+        rows = self._rows(client)
+        q = server.questions[0]
+        n_buckets = q['max'] - q['min'] + 1
+        # title row + one row per bucket
+        assert rows[1:1 + n_buckets] == [[str(v), '0'] for v in range(q['min'], q['max'] + 1)]
+
+    def test_rating_counts_correct(self, client):
+        _activate(client, 0)
+        for v in [3, 7, 7, 10]:
+            client.post('/answer', data={'rating': str(v)})
+        rows = self._rows(client)
+        data = {r[0]: r[1] for r in rows if len(r) == 2}
+        assert data['7'] == '2'
+        assert data['3'] == '1'
+        assert data['10'] == '1'
+        assert data['1'] == '0'
+
+    def test_checkbox_has_one_row_per_option(self, client):
+        rows = self._rows(client)
+        q = server.questions[1]
+        title_idx = next(i for i, r in enumerate(rows) if r and q['text'] in r[0])
+        option_rows = rows[title_idx + 1: title_idx + 1 + len(q['options'])]
+        assert [r[0] for r in option_rows] == q['options']
+
+    def test_checkbox_counts_correct(self, client):
         _activate(client, 1)
         client.post('/answer', data={'options': ['written an app', 'designed a chip']})
-        rows = self._parse_csv(client)
-        assert 'written an app' in rows[1][3]
-        assert 'designed a chip' in rows[1][3]
-
-    def test_all_questions_included(self, client):
-        _activate(client, 0)
-        client.post('/answer', data={'rating': '5'})
-        _activate(client, 1)
         client.post('/answer', data={'options': ['written an app']})
-        rows = self._parse_csv(client)
-        assert len(rows) == 3   # header + 2 responses
+        rows = self._rows(client)
+        q = server.questions[1]
+        title_idx = next(i for i, r in enumerate(rows) if r and q['text'] in r[0])
+        data = {r[0]: r[1] for r in rows[title_idx + 1: title_idx + 1 + len(q['options'])]}
+        assert data['written an app'] == '2'
+        assert data['designed a chip'] == '1'
+        assert data['coded a website'] == '0'
 
-    def test_content_type_is_csv(self, client):
-        r = client.get('/export')
-        assert 'text/csv' in r.content_type
+    def test_mc_counts_correct(self, client):
+        _activate(client, MC_IDX)
+        for opt in ['academic', 'academic', 'industry']:
+            client.post('/answer', data={'option': opt})
+        rows = self._rows(client)
+        q = server.questions[MC_IDX]
+        title_idx = next(i for i, r in enumerate(rows) if r and q['text'] in r[0])
+        data = {r[0]: r[1] for r in rows[title_idx + 1: title_idx + 1 + len(q['options'])]}
+        assert data['academic'] == '2'
+        assert data['industry'] == '1'
+
+    def test_blank_row_between_questions(self, client):
+        rows = self._rows(client)
+        q = server.questions[0]
+        n_buckets = q['max'] - q['min'] + 1
+        # blank row after first question's block
+        assert rows[1 + n_buckets] == []
+
+    def test_zero_responses_shows_zeros(self, client):
+        rows = self._rows(client)
+        q = server.questions[0]
+        data = {r[0]: r[1] for r in rows[1:] if len(r) == 2}
+        for v in range(q['min'], q['max'] + 1):
+            assert data[str(v)] == '0'
 
 
 # ── teacher page ───────────────────────────────────────────────────────────────
@@ -510,9 +584,11 @@ class TestTeacherPage:
         assert b'Teacher Dashboard' in r.data
 
     def test_all_questions_listed(self, client):
+        import html as html_lib
         r = client.get('/teacher')
+        page = html_lib.unescape(r.data.decode())
         for q in server.questions:
-            assert q['text'].encode() in r.data
+            assert q['text'] in page
 
     def test_active_question_highlighted(self, client):
         _activate(client, 0)
