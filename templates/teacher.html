@@ -31,6 +31,7 @@
     .btn-ask  { background: #4caf50; color: #fff; }
     .btn-stop { background: #e53935; color: #fff; }
     .btn-export { background: #1976d2; color: #fff; padding: 10px 22px; font-size: 15px; width: 100%; }
+    .btn-file   { background: #546e7a; color: #fff; font-size: 13px; }
     .btn-impromptu { background: #ff7043; color: #fff; padding: 10px 22px; font-size: 15px; width: 100%; }
     .btn:hover { opacity: .88; }
 
@@ -116,9 +117,26 @@
         </div>
       </div>
 
-      <!-- Export -->
+      <!-- Questions file -->
+      <div class="card">
+        <h2>Questions file</h2>
+        <div style="display:flex; gap:8px; margin-bottom:6px;">
+          <button class="btn btn-file" style="flex:1;" onclick="saveQuestions()">Save to disk</button>
+          <a id="download-link" href="#" onclick="downloadQuestions(event)" style="flex:1;">
+            <button class="btn btn-file" style="width:100%;">Download</button>
+          </a>
+        </div>
+        <div id="save-status" style="font-size:12px; min-height:16px; margin-bottom:10px;"></div>
+        <label style="font-size:13px; color:#555; display:block; margin-bottom:6px;">Load from file:</label>
+        <input type="file" id="json-upload" accept=".json"
+               style="font-size:13px; width:100%; margin-bottom:8px;">
+        <button class="btn btn-file" style="width:100%;" onclick="loadQuestions()">Upload &amp; reload</button>
+        <div id="load-status" style="font-size:12px; min-height:16px; margin-top:6px;"></div>
+      </div>
+
+      <!-- Export results CSV -->
       <a href="/export" style="text-decoration:none;">
-        <button class="btn btn-export">Export CSV</button>
+        <button class="btn btn-export">Export results CSV</button>
       </a>
     </div>
 
@@ -343,6 +361,56 @@
 
     pollResults();
     setInterval(pollResults, 2000);
+
+    function saveQuestions() {
+      fetch('/api/save_questions', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+          const el = document.getElementById('save-status');
+          el.style.color = d.ok ? '#4caf50' : '#e53935';
+          el.textContent = d.ok ? 'Saved to questions.json.' : 'Error: ' + d.error;
+          setTimeout(() => { el.textContent = ''; }, 2500);
+        });
+    }
+
+    function downloadQuestions() {
+      const blob = new Blob([JSON.stringify({{ questions | tojson }}, null, 2)],
+                            { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'questions.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function loadQuestions() {
+      const file = document.getElementById('json-upload').files[0];
+      const statusEl = document.getElementById('load-status');
+      if (!file) { statusEl.textContent = 'Choose a file first.'; statusEl.style.color = '#e53935'; return; }
+      const reader = new FileReader();
+      reader.onload = e => {
+        let data;
+        try { data = JSON.parse(e.target.result); }
+        catch { statusEl.textContent = 'Invalid JSON.'; statusEl.style.color = '#e53935'; return; }
+        fetch('/api/load_questions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+        .then(r => r.json())
+        .then(d => {
+          if (d.ok) {
+            statusEl.style.color = '#4caf50';
+            statusEl.textContent = `Loaded ${d.count} questions — reloading…`;
+            setTimeout(() => location.reload(), 800);
+          } else {
+            statusEl.style.color = '#e53935';
+            statusEl.textContent = 'Error: ' + d.error;
+          }
+        });
+      };
+      reader.readAsText(file);
+    }
 
     function toggleImpForm() {
       document.getElementById('imp-form').classList.toggle('open');

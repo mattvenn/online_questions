@@ -204,6 +204,32 @@ def api_results():
     return jsonify({'active': False})
 
 
+@app.route('/api/save_questions', methods=['POST'])
+def save_questions():
+    with open('questions.json', 'w') as f:
+        json.dump(questions, f, indent=2)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/load_questions', methods=['POST'])
+def load_questions():
+    global current_idx
+    data = request.get_json()
+    if not isinstance(data, list):
+        return jsonify({'ok': False, 'error': 'expected a JSON array'}), 400
+    for q in data:
+        if not isinstance(q, dict) or not q.get('text') or \
+                q.get('type') not in ('rating', 'checkbox', 'multiple_choice'):
+            return jsonify({'ok': False, 'error': f'invalid question: {q!r}'}), 400
+        if q['type'] == 'rating' and ('min' not in q or 'max' not in q):
+            return jsonify({'ok': False, 'error': f'rating question missing min/max'}), 400
+        if q['type'] in ('checkbox', 'multiple_choice') and not q.get('options'):
+            return jsonify({'ok': False, 'error': f'question missing options list'}), 400
+    questions[:] = data
+    current_idx = -1
+    return jsonify({'ok': True, 'count': len(questions)})
+
+
 @app.route('/export')
 def export():
     buf = io.StringIO()

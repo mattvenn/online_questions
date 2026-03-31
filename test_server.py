@@ -388,6 +388,78 @@ class TestMultipleChoice:
         assert counts[opts[0]] > counts[opts[1]]
 
 
+# ── questions file save / load ─────────────────────────────────────────────────
+
+class TestQuestionsFile:
+    def test_save_writes_valid_json(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / 'questions.json').write_text('[]')
+        client.post('/api/save_questions')
+        written = json.loads((tmp_path / 'questions.json').read_text())
+        assert written == server.questions
+
+    def test_save_preserves_all_fields(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / 'questions.json').write_text('[]')
+        client.post('/api/save_questions')
+        written = json.loads((tmp_path / 'questions.json').read_text())
+        q = written[0]
+        assert 'id' in q and 'text' in q and 'type' in q
+
+    def test_load_replaces_questions(self, client):
+        new_qs = [{'id': 99, 'text': 'New Q', 'type': 'rating', 'min': 1, 'max': 5}]
+        r = client.post('/api/load_questions', json=new_qs)
+        assert r.get_json()['ok'] is True
+        assert server.questions == new_qs
+
+    def test_load_returns_count(self, client):
+        new_qs = [
+            {'id': 1, 'text': 'Q1', 'type': 'rating', 'min': 1, 'max': 10},
+            {'id': 2, 'text': 'Q2', 'type': 'checkbox', 'options': ['a', 'b']},
+        ]
+        d = client.post('/api/load_questions', json=new_qs).get_json()
+        assert d['count'] == 2
+
+    def test_load_resets_active_question(self, client):
+        _activate(client, 0)
+        new_qs = [{'id': 1, 'text': 'Q', 'type': 'rating', 'min': 1, 'max': 10}]
+        client.post('/api/load_questions', json=new_qs)
+        assert server.current_idx == -1
+
+    def test_load_not_a_list_rejected(self, client):
+        r = client.post('/api/load_questions', json={'text': 'oops'})
+        assert r.status_code == 400
+
+    def test_load_invalid_type_rejected(self, client):
+        r = client.post('/api/load_questions',
+                        json=[{'id': 1, 'text': 'Q', 'type': 'freetext'}])
+        assert r.status_code == 400
+
+    def test_load_rating_missing_min_max_rejected(self, client):
+        r = client.post('/api/load_questions',
+                        json=[{'id': 1, 'text': 'Q', 'type': 'rating'}])
+        assert r.status_code == 400
+
+    def test_load_checkbox_missing_options_rejected(self, client):
+        r = client.post('/api/load_questions',
+                        json=[{'id': 1, 'text': 'Q', 'type': 'checkbox'}])
+        assert r.status_code == 400
+
+    def test_load_multiple_choice_missing_options_rejected(self, client):
+        r = client.post('/api/load_questions',
+                        json=[{'id': 1, 'text': 'Q', 'type': 'multiple_choice'}])
+        assert r.status_code == 400
+
+    def test_roundtrip_save_then_load(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / 'questions.json').write_text('[]')
+        client.post('/api/save_questions')
+        saved = json.loads((tmp_path / 'questions.json').read_text())
+        server.questions[:] = []  # wipe in-memory
+        client.post('/api/load_questions', json=saved)
+        assert server.questions == saved
+
+
 # ── CSV export ─────────────────────────────────────────────────────────────────
 
 class TestExport:

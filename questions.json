@@ -10,14 +10,31 @@
   },
   {
     "id": 2,
-    "text": "Pick all that apply",
+    "text": "Where are you in your technical journey?",
     "type": "checkbox",
-    "options": ["written an app", "coded a website", "designed a chip"]
+    "options": [
+      "written an app",
+      "coded a website",
+      "designed a chip"
+    ]
   },
   {
     "id": 3,
-    "text": "What is your background?",
+    "text": "What's your background?",
     "type": "multiple_choice",
-    "options": ["academic", "industry", "hobbyist"]
+    "options": [
+      "academic",
+      "industry",
+      "hobbyist"
+    ]
+  },
+  {
+    "id": 4,
+    "text": "Are you cool?",
+    "type": "multiple_choice",
+    "options": [
+      "Yes",
+      "No"
+    ]
   }
 ]
