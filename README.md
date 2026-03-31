@@ -29,3 +29,53 @@ Allow a workshop leader to ask a question to a virtual audience like "how confid
 ## Takes inspiration from 
 
 * Mentimeter.com
+
+## Usage
+
+### Setup
+
+```bash
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
+```
+
+### Start the server
+
+```bash
+venv/bin/python server.py
+```
+
+- **Teacher dashboard:** http://127.0.0.1:5001/teacher
+- **Student page** (shown as QR code on the dashboard): http://\<your-lan-ip\>:5001/
+
+### Start with pre-loaded test data
+
+Useful for working on the teacher graph display without needing real respondents:
+
+```bash
+venv/bin/python server.py --preload
+```
+
+Injects 200 fake responses for each question (bell-curve distribution for ratings, skewed distribution for checkboxes) and activates the first question.
+
+### Run tests
+
+```bash
+venv/bin/pytest test_server.py -v
+```
+
+58 tests covering all endpoints, validation, CSV export, and the bulk data helpers.
+
+### Questions
+
+Questions are defined in `questions.json`. Each question needs `id`, `text`, and `type`. Supported types:
+
+- `rating` — slider from `min` to `max`, with optional `label_min` / `label_max`
+- `checkbox` — multiple-select from an `options` list
+
+New questions can also be added live from the teacher dashboard ("+ Ask impromptu question").
+
+### Exporting results
+
+Click **Export CSV** on the teacher dashboard, or GET `/export`. One row per response, with `question_id`, `question_text`, `type`, `answer`, and `timestamp` columns.
+
