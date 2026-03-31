@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify, make_response, redir
 import json
 import csv
 import io
+import os
 import random
 import qrcode as qrcode_lib
 import base64
@@ -9,7 +10,7 @@ import socket
 from datetime import datetime
 
 app = Flask(__name__)
-PORT = 5001
+PORT = int(os.environ.get('PORT', 5001))
 
 with open('questions.json') as f:
     questions = json.load(f)
@@ -40,7 +41,8 @@ def make_qr_base64(url):
 
 
 def student_url():
-    return f"http://{get_local_ip()}:{PORT}"
+    base = os.environ.get('BASE_URL', '').rstrip('/')
+    return base if base else f"http://{get_local_ip()}:{PORT}"
 
 
 # --- Student routes ---

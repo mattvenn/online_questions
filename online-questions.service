@@ -1,0 +1,15 @@
+[Unit]
+Description=Online Questions
+After=network.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__INSTALL_DIR__
+Environment=BASE_URL=http://test.mattvenn.net
+ExecStart=__INSTALL_DIR__/venv/bin/gunicorn --workers 1 --bind 127.0.0.1:5001 server:app
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
