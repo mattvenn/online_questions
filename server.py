@@ -88,7 +88,7 @@ def teacher_logout():
 def student():
     q = questions[current_idx] if current_idx >= 0 else None
     answered = bool(q and request.cookies.get(f'answered_{q["id"]}_r{cookie_round}'))
-    return render_template('student.html', question=q, answered=answered)
+    return render_template('student.html', question=q, answered=answered, cookie_round=cookie_round)
 
 
 @app.route('/answer', methods=['POST'])
@@ -128,7 +128,7 @@ def submit_answer():
 @app.route('/api/current')
 def api_current():
     qid = questions[current_idx]['id'] if current_idx >= 0 else None
-    return jsonify({'question_id': qid})
+    return jsonify({'question_id': qid, 'cookie_round': cookie_round})
 
 
 # --- Teacher routes ---

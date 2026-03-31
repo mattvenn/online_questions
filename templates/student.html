@@ -96,9 +96,10 @@
   </div>
   <script>
     let knownQid = {{ question.id }};
+    let knownRound = {{ cookie_round }};
     function checkCurrent() {
       fetch('/api/current').then(r => r.json()).then(d => {
-        if (d.question_id !== knownQid) location.reload();
+        if (d.question_id !== knownQid || d.cookie_round !== knownRound) location.reload();
       });
     }
     setInterval(checkCurrent, 2000);

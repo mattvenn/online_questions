@@ -27,6 +27,7 @@ def reset_state():
     """Reset all server-side state before each test."""
     server.current_idx = -1
     server.responses.clear()
+    server.cookie_round = 0
     server.questions[:] = json.loads(json.dumps(_ORIGINAL_QUESTIONS))
 
 
@@ -849,3 +850,13 @@ class TestResetAnswered:
     def test_requires_auth_when_password_set(self, auth_client):
         r = auth_client.post('/api/reset_answered')
         assert r.status_code == 302
+
+    def test_api_current_reflects_new_cookie_round_after_reset(self, client):
+        # A student who has already answered polls /api/current to decide whether
+        # to reload. Before this fix, cookie_round was absent from the response so
+        # a reset never triggered a reload even though the old cookie became invalid.
+        _activate(client, 0)
+        before = client.get('/api/current').get_json()['cookie_round']
+        client.post('/api/reset_answered')
+        after = client.get('/api/current').get_json()['cookie_round']
+        assert after == before + 1
