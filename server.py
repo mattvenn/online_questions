@@ -5,6 +5,7 @@ import csv
 import io
 import os
 import random
+import subprocess
 import qrcode as qrcode_lib
 import base64
 import socket
@@ -12,6 +13,21 @@ from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
+
+def _get_git_hash():
+    try:
+        return subprocess.check_output(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        return None
+
+GIT_HASH = _get_git_hash()
+
+@app.context_processor
+def inject_git_hash():
+    return {'git_hash': GIT_HASH}
 PORT = int(os.environ.get('PORT', 5001))
 TEACHER_PASSWORD = os.environ.get('TEACHER_PASSWORD', '')
 
