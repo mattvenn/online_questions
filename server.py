@@ -177,6 +177,7 @@ def add_question():
     if q_type == 'rating':
         q['min'] = int(data.get('min', 1))
         q['max'] = int(data.get('max', 10))
+        q['step'] = int(data.get('step', 1))
         q['label_min'] = data.get('label_min', '')
         q['label_max'] = data.get('label_max', '')
     elif q_type in ('checkbox', 'multiple_choice'):
@@ -239,7 +240,8 @@ def api_results():
     total = len(entries)
 
     if q['type'] == 'rating':
-        counts = {str(i): 0 for i in range(q['min'], q['max'] + 1)}
+        step = q.get('step', 1)
+        counts = {str(i): 0 for i in range(q['min'], q['max'] + 1, step)}
         for e in entries:
             key = str(e['answer'])
             counts[key] = counts.get(key, 0) + 1
@@ -247,7 +249,7 @@ def api_results():
             'active': True,
             'type': 'rating',
             'question': q['text'],
-            'labels': [str(i) for i in range(q['min'], q['max'] + 1)],
+            'labels': [str(i) for i in range(q['min'], q['max'] + 1, step)],
             'label_min': q.get('label_min', ''),
             'label_max': q.get('label_max', ''),
             'counts': counts,
@@ -327,7 +329,7 @@ def export():
         total = len(entries)
 
         if q['type'] == 'rating':
-            labels = [str(v) for v in range(q['min'], q['max'] + 1)]
+            labels = [str(v) for v in range(q['min'], q['max'] + 1, q.get('step', 1))]
             counts = {l: 0 for l in labels}
             for e in entries:
                 k = str(e['answer'])

@@ -301,6 +301,28 @@ class TestImpromptuQuestions:
         assert q['min'] == 1
         assert q['max'] == 10
 
+    def test_add_rating_default_step(self, client):
+        client.post('/api/add_question', json={'text': 'Rate it', 'type': 'rating'})
+        assert server.questions[-1]['step'] == 1
+
+    def test_add_rating_custom_step(self, client):
+        client.post('/api/add_question',
+                    json={'text': 'Percentage?', 'type': 'rating',
+                          'min': 10, 'max': 100, 'step': 10})
+        q = server.questions[-1]
+        assert q['step'] == 10
+        assert q['min'] == 10
+        assert q['max'] == 100
+
+    def test_rating_step_labels_in_stats(self, client):
+        client.post('/api/add_question',
+                    json={'text': 'Percentage?', 'type': 'rating',
+                          'min': 10, 'max': 100, 'step': 10})
+        _activate(client, len(server.questions) - 1)
+        data = client.get('/api/results').get_json()
+        assert data['labels'] == [str(i) for i in range(10, 101, 10)]
+        assert set(data['counts'].keys()) == {str(i) for i in range(10, 101, 10)}
+
     def test_missing_text_rejected(self, client):
         r = client.post('/api/add_question', json={'type': 'rating'})
         assert r.status_code == 400

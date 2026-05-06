@@ -120,6 +120,7 @@
                id="rating-slider"
                min="{{ question.min }}"
                max="{{ question.max }}"
+               step="{{ question.step or 1 }}"
                value="{{ question.min }}"
                oninput="updateSlider(this)">
         <div class="slider-scale-labels">

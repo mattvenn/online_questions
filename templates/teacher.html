@@ -87,7 +87,7 @@
           <button class="btn-delete" onclick="deleteQuestion({{ i }})" title="Remove question">&#x2715;</button>
           <h3>{{ q.text }}</h3>
           <div class="q-meta">
-            {{ q.type }}{% if q.type == 'rating' %} · {{ q.min }}–{{ q.max }}{% endif %}
+            {{ q.type }}{% if q.type == 'rating' %} · {{ q.min }}–{{ q.max }}{% if q.step and q.step > 1 %} step {{ q.step }}{% endif %}{% endif %}
             {% if q.type in ('checkbox', 'multiple_choice') %} · {{ q.options | length }} options{% endif %}
           </div>
           {% if i == current_idx %}
@@ -113,6 +113,10 @@
               </select>
             </div>
             <div id="imp-rating-labels">
+              <div class="imp-row">
+                <input id="imp-max" class="imp-field" style="margin:0; width:80px;" type="number" min="1" value="10" placeholder="Max (e.g. 10)">
+                <input id="imp-step" class="imp-field" style="margin:0; width:80px;" type="number" min="1" value="1" placeholder="Step (e.g. 1)">
+              </div>
               <div class="imp-row">
                 <input id="imp-label-min" class="imp-field" style="margin:0;" placeholder="Low end label (e.g. Not at all)">
                 <input id="imp-label-max" class="imp-field" style="margin:0;" placeholder="High end label (e.g. Expert)">
@@ -455,6 +459,9 @@
 
       const body = { text, type };
       if (type === 'rating') {
+        body.max = parseInt(document.getElementById('imp-max').value) || 10;
+        body.step = parseInt(document.getElementById('imp-step').value) || 1;
+        body.min = body.step;
         body.label_min = document.getElementById('imp-label-min').value.trim();
         body.label_max = document.getElementById('imp-label-max').value.trim();
       }
