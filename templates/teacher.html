@@ -10,9 +10,10 @@
     h1 { margin: 0 0 20px; color: #222; }
     h2 { margin: 0 0 14px; font-size: 17px; color: #444; }
 
-    .layout { display: flex; gap: 24px; align-items: flex-start; }
-    .left  { flex: 0 0 300px; display: flex; flex-direction: column; gap: 16px; }
-    .right { flex: 1; }
+    .layout-top    { margin-bottom: 24px; }
+    .layout-bottom { display: flex; gap: 24px; align-items: flex-start; }
+    .bottom-left   { flex: 1; display: flex; flex-direction: column; gap: 16px; }
+    .bottom-right  { flex: 0 0 300px; display: flex; flex-direction: column; gap: 16px; }
 
     .card { background: #fff; border-radius: 10px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
 
@@ -50,7 +51,7 @@
     .btn-go { background: #ff7043; color: #fff; width: 100%; padding: 9px; font-size: 14px; }
 
     /* Results */
-    .results-card { min-height: 340px; }
+    .results-card { min-height: 400px; }
     .no-active { color: #aaa; font-style: italic; margin-top: 40px; text-align: center; }
     .q-text { font-size: 18px; font-weight: 600; margin-bottom: 6px; color: #222; }
     .total-count { font-size: 28px; font-weight: 700; color: #4caf50; }
@@ -69,16 +70,20 @@
     </form>
     {% endif %}
   </div>
-  <div class="layout">
-
-    <div class="left">
-      <!-- QR Code -->
-      <div class="card qr-section">
-        <img src="data:image/png;base64,{{ qr }}" alt="QR Code">
-        <div class="qr-url"><a href="{{ student_url }}" target="_blank">{{ student_url }}</a></div>
+  <!-- Live results — full width -->
+  <div class="layout-top">
+    <div class="card results-card">
+      <h2>Live Results</h2>
+      <div id="results-content">
+        <p class="no-active">No question active — click "Ask this" to begin.</p>
       </div>
+    </div>
+  </div>
 
-      <!-- Question list -->
+  <div class="layout-bottom">
+
+    <!-- Questions list -->
+    <div class="bottom-left">
       <div class="card">
         <h2>Questions</h2>
         {% for q in questions %}
@@ -97,6 +102,15 @@
           {% endif %}
         </div>
         {% endfor %}
+      </div>
+    </div>
+
+    <!-- QR code + controls -->
+    <div class="bottom-right">
+      <!-- QR Code -->
+      <div class="card qr-section">
+        <img src="data:image/png;base64,{{ qr }}" alt="QR Code">
+        <div class="qr-url"><a href="{{ student_url }}" target="_blank">{{ student_url }}</a></div>
       </div>
 
       <!-- Impromptu question -->
@@ -156,16 +170,6 @@
       <!-- Reset answered cookies -->
       <button class="btn" style="background:#ff7043;color:#fff;padding:10px 22px;font-size:15px;width:100%;margin-top:8px;"
               onclick="resetAnswered()">Reset answered state</button>
-    </div>
-
-    <!-- Live results -->
-    <div class="right">
-      <div class="card results-card">
-        <h2>Live Results</h2>
-        <div id="results-content">
-          <p class="no-active">No question active — click "Ask this" to begin.</p>
-        </div>
-      </div>
     </div>
 
   </div>
