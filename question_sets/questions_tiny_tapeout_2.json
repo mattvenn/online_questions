@@ -1,12 +1,42 @@
 [
   {
-    "id": 16,
+    "id": 1,
     "text": "Project progress",
     "type": "multiple_choice",
     "options": [
       "I'm done",
       "I'll be done in a week",
       "I'll be done 1 minute before the tapeout!"
+    ]
+  },
+  {
+    "id": 2,
+    "text": "What type of project do you plan to submit?",
+    "type": "multiple_choice",
+    "options": [
+      "Wokwi",
+      "Verilog",
+      "Other HDL"
+    ]
+  },
+  {
+    "id": 3,
+    "text": "GDS task progress",
+    "type": "multiple_choice",
+    "options": [
+      "Done",
+      "5 more minutes",
+      "10 more minutes"
+    ]
+  },
+  {
+    "id": 4,
+    "text": "What's the most interesting IP?",
+    "type": "multiple_choice",
+    "options": [
+      "168 LUT FPGA",
+      "Mini MOSBius",
+      "RISC-V microcontroller"
     ]
   }
 ]
