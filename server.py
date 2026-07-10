@@ -296,21 +296,42 @@ def save_questions():
     return jsonify({'ok': True})
 
 
+def _validate_questions(data):
+    if not isinstance(data, list):
+        return 'expected a JSON array'
+    for q in data:
+        if not isinstance(q, dict) or not q.get('text') or \
+                q.get('type') not in ('rating', 'checkbox', 'multiple_choice'):
+            return f'invalid question: {q!r}'
+        if q['type'] == 'rating' and ('min' not in q or 'max' not in q):
+            return 'rating question missing min/max'
+        if q['type'] in ('checkbox', 'multiple_choice') and not q.get('options'):
+            return 'question missing options list'
+    return None
+
+
 @app.route('/api/load_questions', methods=['POST'])
 @login_required
 def load_questions():
     global current_idx
     data = request.get_json()
-    if not isinstance(data, list):
-        return jsonify({'ok': False, 'error': 'expected a JSON array'}), 400
-    for q in data:
-        if not isinstance(q, dict) or not q.get('text') or \
-                q.get('type') not in ('rating', 'checkbox', 'multiple_choice'):
-            return jsonify({'ok': False, 'error': f'invalid question: {q!r}'}), 400
-        if q['type'] == 'rating' and ('min' not in q or 'max' not in q):
-            return jsonify({'ok': False, 'error': f'rating question missing min/max'}), 400
-        if q['type'] in ('checkbox', 'multiple_choice') and not q.get('options'):
-            return jsonify({'ok': False, 'error': f'question missing options list'}), 400
+    error = _validate_questions(data)
+    if error:
+        return jsonify({'ok': False, 'error': error}), 400
+    questions[:] = data
+    current_idx = -1
+    return jsonify({'ok': True, 'count': len(questions)})
+
+
+@app.route('/api/reload_questions', methods=['POST'])
+@login_required
+def reload_questions():
+    global current_idx
+    with open('questions.json') as f:
+        data = json.load(f)
+    error = _validate_questions(data)
+    if error:
+        return jsonify({'ok': False, 'error': error}), 400
     questions[:] = data
     current_idx = -1
     return jsonify({'ok': True, 'count': len(questions)})

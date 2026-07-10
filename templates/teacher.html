@@ -154,6 +154,7 @@
             <button class="btn btn-file" style="width:100%;">Download</button>
           </a>
         </div>
+        <button class="btn btn-file" style="width:100%; margin-bottom:6px;" onclick="reloadQuestions()">Reload from disk</button>
         <div id="save-status" style="font-size:12px; min-height:16px; margin-bottom:10px;"></div>
         <label style="font-size:13px; color:#555; display:block; margin-bottom:6px;">Load from file:</label>
         <input type="file" id="json-upload" accept=".json"
@@ -403,6 +404,17 @@
           el.style.color = d.ok ? '#4caf50' : '#e53935';
           el.textContent = d.ok ? 'Saved to questions.json.' : 'Error: ' + d.error;
           setTimeout(() => { el.textContent = ''; }, 2500);
+        });
+    }
+
+    function reloadQuestions() {
+      fetch('/api/reload_questions', { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+          const el = document.getElementById('save-status');
+          el.style.color = d.ok ? '#4caf50' : '#e53935';
+          el.textContent = d.ok ? `Reloaded ${d.count} questions — refreshing…` : 'Error: ' + d.error;
+          if (d.ok) setTimeout(() => location.reload(), 800);
         });
     }
 

@@ -529,6 +529,40 @@ class TestQuestionsFile:
         assert server.questions == saved
 
 
+class TestReloadQuestions:
+    def test_reload_reads_file_from_disk(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        new_qs = [{'id': 5, 'text': 'From disk', 'type': 'rating', 'min': 1, 'max': 10}]
+        (tmp_path / 'questions.json').write_text(json.dumps(new_qs))
+        r = client.post('/api/reload_questions')
+        assert r.get_json()['ok'] is True
+        assert server.questions == new_qs
+
+    def test_reload_returns_count(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        new_qs = [
+            {'id': 1, 'text': 'Q1', 'type': 'rating', 'min': 1, 'max': 10},
+            {'id': 2, 'text': 'Q2', 'type': 'checkbox', 'options': ['a', 'b']},
+        ]
+        (tmp_path / 'questions.json').write_text(json.dumps(new_qs))
+        d = client.post('/api/reload_questions').get_json()
+        assert d['count'] == 2
+
+    def test_reload_resets_active_question(self, client, tmp_path, monkeypatch):
+        _activate(client, 0)
+        monkeypatch.chdir(tmp_path)
+        new_qs = [{'id': 1, 'text': 'Q', 'type': 'rating', 'min': 1, 'max': 10}]
+        (tmp_path / 'questions.json').write_text(json.dumps(new_qs))
+        client.post('/api/reload_questions')
+        assert server.current_idx == -1
+
+    def test_reload_invalid_file_rejected(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / 'questions.json').write_text(json.dumps([{'id': 1, 'text': 'Q', 'type': 'freetext'}]))
+        r = client.post('/api/reload_questions')
+        assert r.status_code == 400
+
+
 # ── CSV export (summary format) ────────────────────────────────────────────────
 # Format per question: title row, labels row, counts row; blank line between questions.
 # Designed for paste-into-Google-Sheets → select 2 data rows → Insert chart.
