@@ -78,17 +78,20 @@ def _load_brand():
 current_brand = _load_brand()
 
 
+QUESTION_SETS_DIR = 'question_sets'
+
+
 def _discover_question_sets():
     sets = {}
-    for path in sorted(glob.glob('questions_*.json')):
-        key = path[len('questions_'):-len('.json')]
+    for path in sorted(glob.glob(os.path.join(QUESTION_SETS_DIR, 'questions_*.json'))):
+        key = os.path.basename(path)[len('questions_'):-len('.json')]
         if key:
             sets[key] = {'name': key.replace('_', ' ').title(), 'file': path}
     return sets
 
 
 def _question_set_file(key):
-    return f'questions_{key}.json'
+    return os.path.join(QUESTION_SETS_DIR, f'questions_{key}.json')
 
 
 DEFAULT_SET = 'tiny_tapeout'
@@ -360,6 +363,7 @@ def save_question_set():
     if not key:
         return jsonify({'ok': False, 'error': 'invalid name'}), 400
 
+    os.makedirs(QUESTION_SETS_DIR, exist_ok=True)
     with open(_question_set_file(key), 'w') as f:
         json.dump(questions, f, indent=2)
     current_set = key
@@ -438,6 +442,7 @@ def api_results():
 @app.route('/api/save_questions', methods=['POST'])
 @login_required
 def save_questions():
+    os.makedirs(QUESTION_SETS_DIR, exist_ok=True)
     with open(_question_set_file(current_set), 'w') as f:
         json.dump(questions, f, indent=2)
     return jsonify({'ok': True})

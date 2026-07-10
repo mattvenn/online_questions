@@ -14,7 +14,7 @@ Allow a workshop leader to ask a question to a virtual audience like "how confid
 	* as people answer, results are visible live on a dashboard that can be shared on screen
 		* total response count is shown and updates every second
 * Results are stored in memory and exportable as CSV
-* Questions are pre-loaded from `questions.json` or added live from the teacher dashboard
+* Questions are pre-loaded from a file in `question_sets/` or added live from the teacher dashboard
 * On the spur of the moment a new question can be asked
 
 ## Implementation
@@ -90,13 +90,15 @@ venv/bin/python load_test.py --url https://your-server.example.com --users 50 --
 
 ### Questions
 
-Questions are defined in `questions.json`. Each question needs `id`, `text`, and `type`. Supported types:
+Questions are defined in JSON files under `question_sets/`, one file per set, named `questions_<key>.json` (e.g. `question_sets/questions_tiny_tapeout.json`). Each question needs `id`, `text`, and `type`. Supported types:
 
 - `rating` — slider from `min` to `max`, with optional `label_min` / `label_max`
 - `checkbox` — multiple-select from an `options` list
 - `multiple_choice` — pick one from an `options` list
 
-New questions can also be added live from the teacher dashboard ("+ Ask impromptu question"). Questions can be saved to / loaded from `questions.json` using the "Questions file" card on the dashboard.
+Any file matching that pattern is auto-discovered and selectable from the "Questions" dropdown on the teacher dashboard, with the display name derived from the filename. The active set persists across restarts in `question_set.json`.
+
+New questions can also be added live from the teacher dashboard ("+ Ask impromptu question"). Questions can be saved to / reloaded from the active set's file using the "Questions file" card, and the currently loaded questions can be saved under a new name to create a new set.
 
 ### Exporting results
 
