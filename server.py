@@ -25,11 +25,61 @@ def _get_git_hash():
 
 GIT_HASH = _get_git_hash()
 
-@app.context_processor
-def inject_git_hash():
-    return {'git_hash': GIT_HASH}
 PORT = int(os.environ.get('PORT', 5001))
 TEACHER_PASSWORD = os.environ.get('TEACHER_PASSWORD', '')
+
+BRANDS = {
+    'zero_to_asic': {
+        'name': 'Zero to ASIC',
+        'logo': 'zero-to-asic-logo-transp.png',
+        'accent': '#4caf50',
+        'accent_dark': '#43a047',
+        'accent_rgba_65': 'rgba(76, 175, 80, 0.65)',
+        'accent_rgba_solid': 'rgba(76, 175, 80, 1)',
+        'wash_checkbox': '#f4fff5',
+        'wash_active': '#f1fff3',
+        'pie_colors': [
+            'rgba(76,175,80,0.8)', 'rgba(33,150,243,0.8)', 'rgba(255,112,67,0.8)',
+            'rgba(156,39,176,0.8)', 'rgba(255,193,7,0.8)', 'rgba(0,188,212,0.8)',
+        ],
+    },
+    'tiny_tapeout': {
+        'name': 'Tiny Tapeout',
+        'logo': 'tinytapeout-logo.png',
+        'accent': '#f82381',
+        'accent_dark': '#cb1d6a',
+        'accent_rgba_65': 'rgba(248, 35, 129, 0.65)',
+        'accent_rgba_solid': 'rgba(248, 35, 129, 1)',
+        'wash_checkbox': '#fff0f6',
+        'wash_active': '#ffeaf3',
+        'pie_colors': [
+            'rgba(248,35,129,0.85)', 'rgba(4,3,113,0.85)', 'rgba(254,242,68,0.85)',
+            'rgba(252,159,159,0.85)', 'rgba(4,3,113,0.5)', 'rgba(248,35,129,0.5)',
+        ],
+    },
+}
+DEFAULT_BRAND = 'zero_to_asic'
+
+
+def _load_brand():
+    try:
+        with open('branding.json') as f:
+            data = json.load(f)
+        name = data.get('brand')
+        if name in BRANDS:
+            return name
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    return DEFAULT_BRAND
+
+
+current_brand = _load_brand()
+
+
+@app.context_processor
+def inject_globals():
+    return {'git_hash': GIT_HASH, 'brand': BRANDS[current_brand], 'brand_key': current_brand, 'brands': BRANDS}
+
 
 @app.route('/logos/<path:filename>')
 def serve_logos(filename):
@@ -219,6 +269,20 @@ def delete_question(idx):
         elif current_idx > idx:
             current_idx -= 1
     return jsonify({'ok': True})
+
+
+@app.route('/api/set_brand', methods=['POST'])
+@login_required
+def set_brand():
+    global current_brand
+    data = request.get_json(silent=True) or {}
+    name = data.get('brand')
+    if name not in BRANDS:
+        return jsonify({'ok': False, 'error': 'unknown brand'}), 400
+    current_brand = name
+    with open('branding.json', 'w') as f:
+        json.dump({'brand': name}, f, indent=2)
+    return jsonify({'ok': True, 'brand': name})
 
 
 @app.route('/api/reset_answered', methods=['POST'])

@@ -25,11 +25,11 @@
 
     /* Question list */
     .q-item { border: 2px solid #e0e0e0; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
-    .q-item.active { border-color: #4caf50; background: #f1fff3; }
+    .q-item.active { border-color: {{ brand.accent }}; background: {{ brand.wash_active }}; }
     .q-item h3 { margin: 0 0 3px; font-size: 14px; }
     .q-meta { font-size: 12px; color: #888; margin-bottom: 8px; }
     .btn { border: none; border-radius: 6px; padding: 7px 14px; font-size: 13px; cursor: pointer; font-weight: 600; }
-    .btn-ask  { background: #4caf50; color: #fff; }
+    .btn-ask  { background: {{ brand.accent }}; color: #fff; }
     .btn-stop { background: #e53935; color: #fff; }
     .btn-delete { background: none; border: none; cursor: pointer; color: #bbb; font-size: 16px; padding: 2px 4px; line-height: 1; float: right; }
     .btn-delete:hover { color: #e53935; }
@@ -54,7 +54,7 @@
     .results-card { min-height: 400px; }
     .no-active { color: #aaa; font-style: italic; margin-top: 40px; text-align: center; }
     .q-text { font-size: 18px; font-weight: 600; margin-bottom: 6px; color: #222; }
-    .total-count { font-size: 28px; font-weight: 700; color: #4caf50; }
+    .total-count { font-size: 28px; font-weight: 700; color: {{ brand.accent }}; }
     .total-label { font-size: 14px; color: #888; }
     .chart-wrap { position: relative; height: 280px; margin-top: 12px; }
     .scale-labels { display: flex; justify-content: space-between;
@@ -63,12 +63,22 @@
 </head>
 <body>
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-    <h1 style="margin:0;">Teacher Dashboard</h1>
-    {% if teacher_auth %}
-    <form method="post" action="/teacher/logout" style="margin:0;">
-      <button class="btn" style="background:#e0e0e0;color:#333;">Log out</button>
-    </form>
-    {% endif %}
+    <div style="display:flex;align-items:center;gap:14px;">
+      <img src="/logos/{{ brand.logo }}" alt="{{ brand.name }}" style="height:40px;width:auto;display:block;">
+      <h1 style="margin:0;">Teacher Dashboard</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <select id="brand-select" class="btn" style="background:#fff;border:1.5px solid #d0d0d0;color:#333;" onchange="setBrand(this.value)">
+        {% for key, b in brands.items() %}
+        <option value="{{ key }}" {% if key == brand_key %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+      {% if teacher_auth %}
+      <form method="post" action="/teacher/logout" style="margin:0;">
+        <button class="btn" style="background:#e0e0e0;color:#333;">Log out</button>
+      </form>
+      {% endif %}
+    </div>
   </div>
   <!-- Live results — full width -->
   <div class="layout-top">
@@ -197,10 +207,16 @@
         .then(() => location.reload());
     }
 
-    const PIE_COLORS = [
-      'rgba(76,175,80,0.8)', 'rgba(33,150,243,0.8)', 'rgba(255,112,67,0.8)',
-      'rgba(156,39,176,0.8)', 'rgba(255,193,7,0.8)', 'rgba(0,188,212,0.8)',
-    ];
+    const BRAND_ACCENT = {{ brand.accent | tojson }};
+    const PIE_COLORS = {{ brand.pie_colors | tojson }};
+
+    function setBrand(key) {
+      fetch('/api/set_brand', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand: key }),
+      }).then(() => location.reload());
+    }
 
     let chart = null;
     let activeQuestion = null;
@@ -269,8 +285,8 @@
         type: 'bar',
         label: 'Responses',
         data: barValues,
-        backgroundColor: 'rgba(76, 175, 80, 0.65)',
-        borderColor:  'rgba(76, 175, 80, 1)',
+        backgroundColor: {{ brand.accent_rgba_65 | tojson }},
+        borderColor:  {{ brand.accent_rgba_solid | tojson }},
         borderWidth: 1,
         borderRadius: 3,
         order: 2,
@@ -401,7 +417,7 @@
         .then(r => r.json())
         .then(d => {
           const el = document.getElementById('save-status');
-          el.style.color = d.ok ? '#4caf50' : '#e53935';
+          el.style.color = d.ok ? BRAND_ACCENT : '#e53935';
           el.textContent = d.ok ? 'Saved to questions.json.' : 'Error: ' + d.error;
           setTimeout(() => { el.textContent = ''; }, 2500);
         });
@@ -412,7 +428,7 @@
         .then(r => r.json())
         .then(d => {
           const el = document.getElementById('save-status');
-          el.style.color = d.ok ? '#4caf50' : '#e53935';
+          el.style.color = d.ok ? BRAND_ACCENT : '#e53935';
           el.textContent = d.ok ? `Reloaded ${d.count} questions — refreshing…` : 'Error: ' + d.error;
           if (d.ok) setTimeout(() => location.reload(), 800);
         });
@@ -445,7 +461,7 @@
         .then(r => r.json())
         .then(d => {
           if (d.ok) {
-            statusEl.style.color = '#4caf50';
+            statusEl.style.color = BRAND_ACCENT;
             statusEl.textContent = `Loaded ${d.count} questions — reloading…`;
             setTimeout(() => location.reload(), 800);
           } else {

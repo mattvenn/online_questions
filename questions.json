@@ -1,21 +1,12 @@
 [
   {
-    "id": 1,
-    "text": "How confident are you with Verilog?",
-    "type": "rating",
-    "min": 1,
-    "max": 10,
-    "label_min": "Not at all",
-    "label_max": "Very confident"
-  },
-  {
-    "id": 2,
-    "text": "Where are you in your technical journey?",
-    "type": "checkbox",
+    "id": 8,
+    "text": "How old are you?",
+    "type": "multiple_choice",
     "options": [
-      "written an app",
-      "coded a website",
-      "designed a chip"
+      "Less than 20",
+      "20 to 40",
+      "More than 40"
     ]
   },
   {
@@ -29,12 +20,75 @@
     ]
   },
   {
-    "id": 4,
-    "text": "Are you cool?",
+    "id": 10,
+    "text": "What time is it in your region?",
     "type": "multiple_choice",
     "options": [
-      "Yes",
-      "No"
+      "Morning",
+      "Noon",
+      "Afternoon",
+      "Evening",
+      "Night"
+    ]
+  },
+  {
+    "id": 11,
+    "text": "Tech Experience",
+    "type": "rating",
+    "min": 1,
+    "max": 10,
+    "step": 1,
+    "label_min": "Used an App",
+    "label_max": "Manufactured your own chip"
+  },
+  {
+    "id": 12,
+    "text": "Siliwiz task progress",
+    "type": "multiple_choice",
+    "options": [
+      "Done",
+      "5 more minutes",
+      "10 more minutes"
+    ]
+  },
+  {
+    "id": 13,
+    "text": "Wokwi task progress",
+    "type": "multiple_choice",
+    "options": [
+      "Done",
+      "5 more minutes",
+      "10 more minutes"
+    ]
+  },
+  {
+    "id": 14,
+    "text": "What project are you going to submit?",
+    "type": "multiple_choice",
+    "options": [
+      "Wokwi",
+      "Verilog",
+      "Other HDL"
+    ]
+  },
+  {
+    "id": 15,
+    "text": "What's your HDL experience?",
+    "type": "rating",
+    "min": 1,
+    "max": 10,
+    "step": 1,
+    "label_min": "None",
+    "label_max": "Use it every day"
+  },
+  {
+    "id": 16,
+    "text": "Project progress",
+    "type": "multiple_choice",
+    "options": [
+      "I'm done",
+      "I'll be done in a week",
+      "I'll be done 1 minute before the tapeout!"
     ]
   }
 ]

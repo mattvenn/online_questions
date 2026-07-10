@@ -29,6 +29,7 @@ def reset_state():
     server.responses.clear()
     server.cookie_round = 0
     server.questions[:] = json.loads(json.dumps(_ORIGINAL_QUESTIONS))
+    server.current_brand = server.DEFAULT_BRAND
 
 
 @pytest.fixture
@@ -561,6 +562,51 @@ class TestReloadQuestions:
         (tmp_path / 'questions.json').write_text(json.dumps([{'id': 1, 'text': 'Q', 'type': 'freetext'}]))
         r = client.post('/api/reload_questions')
         assert r.status_code == 400
+
+
+# ── Branding ───────────────────────────────────────────────────────────────────
+
+class TestBranding:
+    def test_default_brand_is_zero_to_asic(self, client):
+        r = client.get('/teacher')
+        assert r.status_code == 200
+        assert b'zero-to-asic-logo-transp.png' in r.data
+
+    def test_student_page_shows_brand_logo(self, client):
+        r = client.get('/')
+        assert b'zero-to-asic-logo-transp.png' in r.data
+
+    def test_set_brand_switches_active_brand(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        r = client.post('/api/set_brand', json={'brand': 'tiny_tapeout'})
+        assert r.get_json() == {'ok': True, 'brand': 'tiny_tapeout'}
+        assert server.current_brand == 'tiny_tapeout'
+
+    def test_set_brand_persists_to_disk(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        client.post('/api/set_brand', json={'brand': 'tiny_tapeout'})
+        saved = json.loads((tmp_path / 'branding.json').read_text())
+        assert saved == {'brand': 'tiny_tapeout'}
+
+    def test_set_brand_reflected_in_teacher_page(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        client.post('/api/set_brand', json={'brand': 'tiny_tapeout'})
+        r = client.get('/teacher')
+        assert b'tinytapeout-logo.png' in r.data
+
+    def test_set_brand_rejects_unknown_brand(self, client):
+        r = client.post('/api/set_brand', json={'brand': 'nonexistent'})
+        assert r.status_code == 400
+        assert server.current_brand == server.DEFAULT_BRAND
+
+    def test_load_brand_defaults_when_file_missing(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        assert server._load_brand() == server.DEFAULT_BRAND
+
+    def test_load_brand_reads_existing_file(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / 'branding.json').write_text(json.dumps({'brand': 'tiny_tapeout'}))
+        assert server._load_brand() == 'tiny_tapeout'
 
 
 # ── CSV export (summary format) ────────────────────────────────────────────────
