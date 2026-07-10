@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "text": "How confident are you with Verilog?",
+    "type": "rating",
+    "min": 1,
+    "max": 10,
+    "step": 1,
+    "label_min": "Not at all",
+    "label_max": "Very confident"
+  },
+  {
+    "id": 2,
+    "text": "What have you made before?",
+    "type": "checkbox",
+    "options": [
+      "written an app",
+      "designed a chip",
+      "coded a website"
+    ]
+  },
+  {
+    "id": 3,
+    "text": "What's your background?",
+    "type": "multiple_choice",
+    "options": [
+      "academic",
+      "industry",
+      "hobbyist"
+    ]
+  }
+]

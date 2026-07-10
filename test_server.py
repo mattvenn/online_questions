@@ -18,7 +18,7 @@ import server
 
 # ── fixtures ───────────────────────────────────────────────────────────────────
 
-with open(os.path.join(os.path.dirname(__file__), 'questions.json')) as f:
+with open(os.path.join(os.path.dirname(__file__), 'questions_test.json')) as f:
     _ORIGINAL_QUESTIONS = json.load(f)
 
 
@@ -30,6 +30,7 @@ def reset_state():
     server.cookie_round = 0
     server.questions[:] = json.loads(json.dumps(_ORIGINAL_QUESTIONS))
     server.current_brand = server.DEFAULT_BRAND
+    server.current_set = 'test'
 
 
 @pytest.fixture
@@ -377,7 +378,7 @@ class TestImpromptuQuestions:
 
 # ── multiple choice ────────────────────────────────────────────────────────────
 
-MC_IDX = 2   # index of the multiple_choice question in questions.json
+MC_IDX = 2   # index of the multiple_choice question in questions_test.json
 
 class TestMultipleChoice:
     def test_student_page_shows_mc_options(self, client):
@@ -463,16 +464,16 @@ class TestMultipleChoice:
 class TestQuestionsFile:
     def test_save_writes_valid_json(self, client, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        (tmp_path / 'questions.json').write_text('[]')
+        (tmp_path / 'questions_test.json').write_text('[]')
         client.post('/api/save_questions')
-        written = json.loads((tmp_path / 'questions.json').read_text())
+        written = json.loads((tmp_path / 'questions_test.json').read_text())
         assert written == server.questions
 
     def test_save_preserves_all_fields(self, client, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        (tmp_path / 'questions.json').write_text('[]')
+        (tmp_path / 'questions_test.json').write_text('[]')
         client.post('/api/save_questions')
-        written = json.loads((tmp_path / 'questions.json').read_text())
+        written = json.loads((tmp_path / 'questions_test.json').read_text())
         q = written[0]
         assert 'id' in q and 'text' in q and 'type' in q
 
@@ -522,9 +523,9 @@ class TestQuestionsFile:
 
     def test_roundtrip_save_then_load(self, client, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        (tmp_path / 'questions.json').write_text('[]')
+        (tmp_path / 'questions_test.json').write_text('[]')
         client.post('/api/save_questions')
-        saved = json.loads((tmp_path / 'questions.json').read_text())
+        saved = json.loads((tmp_path / 'questions_test.json').read_text())
         server.questions[:] = []  # wipe in-memory
         client.post('/api/load_questions', json=saved)
         assert server.questions == saved
@@ -534,7 +535,7 @@ class TestReloadQuestions:
     def test_reload_reads_file_from_disk(self, client, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         new_qs = [{'id': 5, 'text': 'From disk', 'type': 'rating', 'min': 1, 'max': 10}]
-        (tmp_path / 'questions.json').write_text(json.dumps(new_qs))
+        (tmp_path / 'questions_test.json').write_text(json.dumps(new_qs))
         r = client.post('/api/reload_questions')
         assert r.get_json()['ok'] is True
         assert server.questions == new_qs
@@ -545,7 +546,7 @@ class TestReloadQuestions:
             {'id': 1, 'text': 'Q1', 'type': 'rating', 'min': 1, 'max': 10},
             {'id': 2, 'text': 'Q2', 'type': 'checkbox', 'options': ['a', 'b']},
         ]
-        (tmp_path / 'questions.json').write_text(json.dumps(new_qs))
+        (tmp_path / 'questions_test.json').write_text(json.dumps(new_qs))
         d = client.post('/api/reload_questions').get_json()
         assert d['count'] == 2
 
@@ -553,15 +554,94 @@ class TestReloadQuestions:
         _activate(client, 0)
         monkeypatch.chdir(tmp_path)
         new_qs = [{'id': 1, 'text': 'Q', 'type': 'rating', 'min': 1, 'max': 10}]
-        (tmp_path / 'questions.json').write_text(json.dumps(new_qs))
+        (tmp_path / 'questions_test.json').write_text(json.dumps(new_qs))
         client.post('/api/reload_questions')
         assert server.current_idx == -1
 
     def test_reload_invalid_file_rejected(self, client, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        (tmp_path / 'questions.json').write_text(json.dumps([{'id': 1, 'text': 'Q', 'type': 'freetext'}]))
+        (tmp_path / 'questions_test.json').write_text(json.dumps([{'id': 1, 'text': 'Q', 'type': 'freetext'}]))
         r = client.post('/api/reload_questions')
         assert r.status_code == 400
+
+
+class TestQuestionSets:
+    def test_teacher_page_lists_discovered_sets(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / 'questions_tiny_tapeout.json').write_text(json.dumps(_ORIGINAL_QUESTIONS))
+        (tmp_path / 'questions_workshop.json').write_text(json.dumps(_ORIGINAL_QUESTIONS))
+        r = client.get('/teacher')
+        assert b'Tiny Tapeout' in r.data
+        assert b'Workshop' in r.data
+
+    def test_set_question_set_switches_active_set(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        new_qs = [{'id': 1, 'text': 'Workshop Q', 'type': 'rating', 'min': 1, 'max': 10}]
+        (tmp_path / 'questions_tiny_tapeout.json').write_text(json.dumps(_ORIGINAL_QUESTIONS))
+        (tmp_path / 'questions_workshop.json').write_text(json.dumps(new_qs))
+        r = client.post('/api/set_question_set', json={'set': 'workshop'})
+        assert r.get_json() == {'ok': True, 'set': 'workshop', 'count': 1}
+        assert server.current_set == 'workshop'
+        assert server.questions == new_qs
+
+    def test_set_question_set_clears_active_question_and_responses(self, client, tmp_path, monkeypatch):
+        _activate(client, 0)
+        client.post('/answer', data={'rating': '7'})
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / 'questions_tiny_tapeout.json').write_text(json.dumps(_ORIGINAL_QUESTIONS))
+        (tmp_path / 'questions_workshop.json').write_text(json.dumps(_ORIGINAL_QUESTIONS))
+        client.post('/api/set_question_set', json={'set': 'workshop'})
+        assert server.current_idx == -1
+        assert server.responses == {}
+
+    def test_set_question_set_persists_to_disk(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / 'questions_tiny_tapeout.json').write_text(json.dumps(_ORIGINAL_QUESTIONS))
+        (tmp_path / 'questions_workshop.json').write_text(json.dumps(_ORIGINAL_QUESTIONS))
+        client.post('/api/set_question_set', json={'set': 'workshop'})
+        saved = json.loads((tmp_path / 'question_set.json').read_text())
+        assert saved == {'set': 'workshop'}
+
+    def test_set_question_set_rejects_unknown_set(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / 'questions_tiny_tapeout.json').write_text(json.dumps(_ORIGINAL_QUESTIONS))
+        r = client.post('/api/set_question_set', json={'set': 'nonexistent'})
+        assert r.status_code == 400
+        assert server.current_set == 'test'
+
+    def test_save_question_set_creates_new_file_and_switches(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        r = client.post('/api/save_question_set', json={'name': 'Workshop Intro'})
+        assert r.get_json() == {'ok': True, 'set': 'workshop_intro'}
+        assert server.current_set == 'workshop_intro'
+        written = json.loads((tmp_path / 'questions_workshop_intro.json').read_text())
+        assert written == server.questions
+
+    def test_save_question_set_rejects_empty_name(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        r = client.post('/api/save_question_set', json={'name': '   '})
+        assert r.status_code == 400
+
+    def test_discover_question_sets_finds_files(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / 'questions_foo.json').write_text('[]')
+        (tmp_path / 'questions_bar_baz.json').write_text('[]')
+        sets = server._discover_question_sets()
+        assert set(sets.keys()) == {'foo', 'bar_baz'}
+        assert sets['bar_baz']['name'] == 'Bar Baz'
+
+    def test_load_question_set_defaults_to_first_when_file_missing(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / 'questions_only.json').write_text('[]')
+        sets = server._discover_question_sets()
+        assert server._load_question_set(sets) == 'only'
+
+    def test_load_question_set_reads_existing_file(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / 'questions_foo.json').write_text('[]')
+        (tmp_path / 'question_set.json').write_text(json.dumps({'set': 'foo'}))
+        sets = server._discover_question_sets()
+        assert server._load_question_set(sets) == 'foo'
 
 
 # ── Branding ───────────────────────────────────────────────────────────────────

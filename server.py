@@ -2,9 +2,11 @@ from flask import Flask, render_template, request, jsonify, make_response, redir
 from functools import wraps
 import json
 import csv
+import glob
 import io
 import os
 import random
+import re
 import subprocess
 import qrcode as qrcode_lib
 import base64
@@ -76,9 +78,47 @@ def _load_brand():
 current_brand = _load_brand()
 
 
+def _discover_question_sets():
+    sets = {}
+    for path in sorted(glob.glob('questions_*.json')):
+        key = path[len('questions_'):-len('.json')]
+        if key:
+            sets[key] = {'name': key.replace('_', ' ').title(), 'file': path}
+    return sets
+
+
+def _question_set_file(key):
+    return f'questions_{key}.json'
+
+
+DEFAULT_SET = 'tiny_tapeout'
+
+
+def _load_question_set(sets):
+    try:
+        with open('question_set.json') as f:
+            data = json.load(f)
+        key = data.get('set')
+        if key in sets:
+            return key
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    if DEFAULT_SET in sets:
+        return DEFAULT_SET
+    return next(iter(sets), None)
+
+
+def _slugify(name):
+    return re.sub(r'[^a-z0-9]+', '_', name.strip().lower()).strip('_')
+
+
+current_set = _load_question_set(_discover_question_sets())
+
+
 @app.context_processor
 def inject_globals():
-    return {'git_hash': GIT_HASH, 'brand': BRANDS[current_brand], 'brand_key': current_brand, 'brands': BRANDS}
+    return {'git_hash': GIT_HASH, 'brand': BRANDS[current_brand], 'brand_key': current_brand, 'brands': BRANDS,
+            'question_sets': _discover_question_sets(), 'current_set': current_set}
 
 
 @app.route('/logos/<path:filename>')
@@ -86,7 +126,7 @@ def serve_logos(filename):
     return send_from_directory('logos', filename)
 
 
-with open('questions.json') as f:
+with open(_question_set_file(current_set)) as f:
     questions = json.load(f)
 
 current_idx = -1  # -1 = no active question
@@ -285,6 +325,49 @@ def set_brand():
     return jsonify({'ok': True, 'brand': name})
 
 
+@app.route('/api/set_question_set', methods=['POST'])
+@login_required
+def set_question_set():
+    global current_set, current_idx, cookie_round
+    data = request.get_json(silent=True) or {}
+    key = data.get('set')
+    sets = _discover_question_sets()
+    if key not in sets:
+        return jsonify({'ok': False, 'error': 'unknown question set'}), 400
+
+    with open(_question_set_file(key)) as f:
+        data_qs = json.load(f)
+    error = _validate_questions(data_qs)
+    if error:
+        return jsonify({'ok': False, 'error': error}), 400
+
+    questions[:] = data_qs
+    current_set = key
+    current_idx = -1
+    responses.clear()
+    cookie_round += 1
+    with open('question_set.json', 'w') as f:
+        json.dump({'set': key}, f, indent=2)
+    return jsonify({'ok': True, 'set': key, 'count': len(questions)})
+
+
+@app.route('/api/save_question_set', methods=['POST'])
+@login_required
+def save_question_set():
+    global current_set
+    data = request.get_json(silent=True) or {}
+    key = _slugify(data.get('name', ''))
+    if not key:
+        return jsonify({'ok': False, 'error': 'invalid name'}), 400
+
+    with open(_question_set_file(key), 'w') as f:
+        json.dump(questions, f, indent=2)
+    current_set = key
+    with open('question_set.json', 'w') as f:
+        json.dump({'set': key}, f, indent=2)
+    return jsonify({'ok': True, 'set': key})
+
+
 @app.route('/api/reset_answered', methods=['POST'])
 @login_required
 def reset_answered():
@@ -355,7 +438,7 @@ def api_results():
 @app.route('/api/save_questions', methods=['POST'])
 @login_required
 def save_questions():
-    with open('questions.json', 'w') as f:
+    with open(_question_set_file(current_set), 'w') as f:
         json.dump(questions, f, indent=2)
     return jsonify({'ok': True})
 
@@ -391,7 +474,7 @@ def load_questions():
 @login_required
 def reload_questions():
     global current_idx
-    with open('questions.json') as f:
+    with open(_question_set_file(current_set)) as f:
         data = json.load(f)
     error = _validate_questions(data)
     if error:

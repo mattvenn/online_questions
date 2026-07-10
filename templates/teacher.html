@@ -67,12 +67,21 @@
       <img src="/logos/{{ brand.logo }}" alt="{{ brand.name }}" style="height:40px;width:auto;display:block;">
       <h1 style="margin:0;">Teacher Dashboard</h1>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <select id="brand-select" class="btn" style="background:#fff;border:1.5px solid #d0d0d0;color:#333;" onchange="setBrand(this.value)">
-        {% for key, b in brands.items() %}
-        <option value="{{ key }}" {% if key == brand_key %}selected{% endif %}>{{ b.name }}</option>
-        {% endfor %}
-      </select>
+    <div style="display:flex;align-items:flex-end;gap:10px;">
+      <label style="font-size:12px;color:#888;">Brand
+        <select id="brand-select" class="btn" style="background:#fff;border:1.5px solid #d0d0d0;color:#333;display:block;margin-top:2px;" onchange="setBrand(this.value)">
+          {% for key, b in brands.items() %}
+          <option value="{{ key }}" {% if key == brand_key %}selected{% endif %}>{{ b.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label style="font-size:12px;color:#888;">Questions
+        <select id="set-select" class="btn" style="background:#fff;border:1.5px solid #d0d0d0;color:#333;display:block;margin-top:2px;" onchange="setQuestionSet(this.value)">
+          {% for key, s in question_sets.items() %}
+          <option value="{{ key }}" {% if key == current_set %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
       {% if teacher_auth %}
       <form method="post" action="/teacher/logout" style="margin:0;">
         <button class="btn" style="background:#e0e0e0;color:#333;">Log out</button>
@@ -171,6 +180,12 @@
                style="font-size:13px; width:100%; margin-bottom:8px;">
         <button class="btn btn-file" style="width:100%;" onclick="loadQuestions()">Upload &amp; reload</button>
         <div id="load-status" style="font-size:12px; min-height:16px; margin-top:6px;"></div>
+        <hr style="border:none;border-top:1px solid #eee;margin:10px 0;">
+        <label style="font-size:13px; color:#555; display:block; margin-bottom:6px;">Save currently loaded questions as a new set:</label>
+        <input type="text" id="save-set-name" placeholder="Set name…"
+               style="width:100%; box-sizing:border-box; padding:8px 10px; border:1.5px solid #d0d0d0; border-radius:6px; font-size:13px; font-family:inherit; margin-bottom:8px;">
+        <button class="btn btn-file" style="width:100%;" onclick="saveAsNewSet()">Save as new set</button>
+        <div id="save-set-status" style="font-size:12px; min-height:16px; margin-top:6px;"></div>
       </div>
 
       <!-- Export results CSV -->
@@ -216,6 +231,39 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ brand: key }),
       }).then(() => location.reload());
+    }
+
+    const CURRENT_SET = {{ current_set | tojson }};
+
+    function setQuestionSet(key) {
+      fetch('/api/set_question_set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ set: key }),
+      }).then(() => location.reload());
+    }
+
+    function saveAsNewSet() {
+      const nameEl = document.getElementById('save-set-name');
+      const statusEl = document.getElementById('save-set-status');
+      const name = nameEl.value.trim();
+      if (!name) { statusEl.textContent = 'Enter a name first.'; statusEl.style.color = '#e53935'; return; }
+      fetch('/api/save_question_set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) {
+          statusEl.style.color = BRAND_ACCENT;
+          statusEl.textContent = `Saved as "${d.set}" — reloading…`;
+          setTimeout(() => location.reload(), 800);
+        } else {
+          statusEl.style.color = '#e53935';
+          statusEl.textContent = 'Error: ' + d.error;
+        }
+      });
     }
 
     let chart = null;
@@ -418,7 +466,7 @@
         .then(d => {
           const el = document.getElementById('save-status');
           el.style.color = d.ok ? BRAND_ACCENT : '#e53935';
-          el.textContent = d.ok ? 'Saved to questions.json.' : 'Error: ' + d.error;
+          el.textContent = d.ok ? 'Saved to disk.' : 'Error: ' + d.error;
           setTimeout(() => { el.textContent = ''; }, 2500);
         });
     }
@@ -439,7 +487,7 @@
                             { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'questions.json';
+      a.download = `questions_${CURRENT_SET}.json`;
       a.click();
       URL.revokeObjectURL(a.href);
     }
