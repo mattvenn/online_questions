@@ -1,15 +1,5 @@
 [
   {
-    "id": 8,
-    "text": "How old are you?",
-    "type": "multiple_choice",
-    "options": [
-      "Less than 20",
-      "20 to 40",
-      "More than 40"
-    ]
-  },
-  {
     "id": 3,
     "text": "What's your background?",
     "type": "multiple_choice",
@@ -29,6 +19,17 @@
       "Afternoon",
       "Evening",
       "Night"
+    ]
+  },
+  {
+    "id": 8,
+    "text": "How old are you?",
+    "type": "multiple_choice",
+    "options": [
+      "Less than 20",
+      "20 to 29",
+      "30 to 49",
+      "More than 50"
     ]
   },
   {
@@ -80,15 +81,5 @@
     "step": 1,
     "label_min": "None",
     "label_max": "Use it every day"
-  },
-  {
-    "id": 16,
-    "text": "Project progress",
-    "type": "multiple_choice",
-    "options": [
-      "I'm done",
-      "I'll be done in a week",
-      "I'll be done 1 minute before the tapeout!"
-    ]
   }
 ]

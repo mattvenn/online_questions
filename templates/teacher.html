@@ -240,7 +240,12 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ set: key }),
-      }).then(() => location.reload());
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (!d.ok) alert('Could not switch question set: ' + d.error);
+        location.reload();
+      });
     }
 
     function saveAsNewSet() {

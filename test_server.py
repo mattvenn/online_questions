@@ -616,6 +616,14 @@ class TestQuestionSets:
         assert r.status_code == 400
         assert server.current_set == 'test'
 
+    def test_set_question_set_rejects_malformed_json_without_crashing(self, client, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        _qfile(tmp_path, 'broken').write_text('[{"id": 1, "text": "Q", "type": "rating", "min": 1, "max": 5},]')
+        r = client.post('/api/set_question_set', json={'set': 'broken'})
+        assert r.status_code == 400
+        assert 'invalid JSON' in r.get_json()['error']
+        assert server.current_set == 'test'
+
     def test_save_question_set_creates_new_file_and_switches(self, client, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         r = client.post('/api/save_question_set', json={'name': 'Workshop Intro'})

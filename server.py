@@ -338,8 +338,11 @@ def set_question_set():
     if key not in sets:
         return jsonify({'ok': False, 'error': 'unknown question set'}), 400
 
-    with open(_question_set_file(key)) as f:
-        data_qs = json.load(f)
+    try:
+        with open(_question_set_file(key)) as f:
+            data_qs = json.load(f)
+    except json.JSONDecodeError as e:
+        return jsonify({'ok': False, 'error': f'invalid JSON in {_question_set_file(key)}: {e}'}), 400
     error = _validate_questions(data_qs)
     if error:
         return jsonify({'ok': False, 'error': error}), 400
@@ -479,8 +482,11 @@ def load_questions():
 @login_required
 def reload_questions():
     global current_idx
-    with open(_question_set_file(current_set)) as f:
-        data = json.load(f)
+    try:
+        with open(_question_set_file(current_set)) as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        return jsonify({'ok': False, 'error': f'invalid JSON in {_question_set_file(current_set)}: {e}'}), 400
     error = _validate_questions(data)
     if error:
         return jsonify({'ok': False, 'error': error}), 400
