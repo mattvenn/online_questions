@@ -1,6 +1,6 @@
 server {
     listen 80;
-    server_name test.mattvenn.net;
+    server_name q.tiny.tt;
 
     location / {
         proxy_pass http://127.0.0.1:5001;

@@ -1,5 +1,7 @@
 # Online Questions
 
+[![Made with Claude](https://img.shields.io/badge/Made%20with-Claude-D97757?logo=anthropic&logoColor=white)](https://claude.com/claude-code)
+
 ## Aim
 
 Allow a workshop leader to ask a question to a virtual audience like "how confident are you with Verilog" and as the audience answers, the results are visible immediately as a graph on screen.
@@ -73,7 +75,7 @@ automatically.
 venv/bin/python load_test.py
 ```
 
-Defaults to `https://test.mattvenn.net`, 200 users per question, responses
+Defaults to `https://q.tiny.tt`, 200 users per question, responses
 spread over 4 seconds. Override any of these:
 
 ```bash
@@ -125,7 +127,7 @@ sudo bash install.sh
 This will:
 - Install dependencies (including gunicorn) into the venv
 - Write and enable `/etc/systemd/system/online-questions.service` (starts on boot)
-- Configure nginx for `test.mattvenn.net` and reload it
+- Configure nginx for `q.tiny.tt` and reload it
 
 ### 3. Verify
 
@@ -143,4 +145,26 @@ sudo systemctl daemon-reload && sudo systemctl restart online-questions
 ```
 
 This controls the URL shown in the QR code on the teacher dashboard.
+
+### Teacher password
+
+The teacher dashboard is protected by `TEACHER_PASSWORD`, an environment
+variable read by `server.py`. If unset, the dashboard requires no login.
+
+It's set via `Environment=TEACHER_PASSWORD=...` in
+`/etc/systemd/system/online-questions.service`, but a systemd drop-in at
+`/etc/systemd/system/online-questions.service.d/override.conf` (if present)
+takes precedence — check there first when looking for the value actually in
+use. To see what's live on the running service:
+
+```bash
+systemctl show online-questions -p Environment
+```
+
+To change it, edit the override (or the service file if no override
+exists), then:
+
+```bash
+sudo systemctl daemon-reload && sudo systemctl restart online-questions
+```
 

@@ -7,7 +7,7 @@ dashboard, then fires --users simulated responses spread over --spread seconds,
 prints a summary, and waits for the next question.
 
 Usage:
-    python load_test.py                          # test.mattvenn.net, 200 users
+    python load_test.py                          # q.tiny.tt, 200 users
     python load_test.py --url https://localhost:5001 --users 50 --spread 4
 
 Workflow:
@@ -137,8 +137,8 @@ def fire_responses(base_url, q_data, n_users, spread):
 
 def main():
     parser = argparse.ArgumentParser(description='Live load test for online-questions server')
-    parser.add_argument('--url', default='https://test.mattvenn.net',
-                        help='Base URL of the server (default: http://test.mattvenn.net)')
+    parser.add_argument('--url', default='https://q.tiny.tt',
+                        help='Base URL of the server (default: http://q.tiny.tt)')
     parser.add_argument('--users', type=int, default=200,
                         help='Simulated users per question (default: 200)')
     parser.add_argument('--spread', type=float, default=4.0,

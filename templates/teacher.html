@@ -38,6 +38,15 @@
     .btn-impromptu { background: #ff7043; color: #fff; padding: 10px 22px; font-size: 15px; width: 100%; }
     .btn:hover { opacity: .88; }
 
+    /* Footer / badge */
+    .claude-badge { display: inline-flex; align-items: stretch; height: 20px; border-radius: 4px; overflow: hidden;
+      font-size: 11px; font-weight: 600; text-decoration: none; line-height: 1; flex: none;
+      font-family: "Segoe UI", system-ui, sans-serif; vertical-align: middle; }
+    .claude-badge:hover { text-decoration: none; opacity: .88; }
+    .claude-badge .cb-l { display: inline-flex; align-items: center; gap: 5px; background: #555; color: #fff; padding: 0 7px; }
+    .claude-badge .cb-r { display: inline-flex; align-items: center; background: #D97757; color: #fff; padding: 0 7px; }
+    .claude-badge svg { width: 12px; height: 12px; fill: #fff; display: block; }
+
     /* Impromptu form */
     .impromptu-form { display: none; margin-top: 14px; }
     .impromptu-form.open { display: block; }
@@ -566,9 +575,12 @@
   </script>
 {% if git_hash %}
 <hr style="margin-top: 32px; border: none; border-top: 1px solid #d0d0d0;">
-<p style="text-align: center; font-size: 12px; color: #999; margin: 8px 0 0;">
+<p style="text-align: center; font-size: 12px; color: #999; margin: 8px 0 0; display: flex; justify-content: center; align-items: center; gap: 10px;">
   <a href="https://github.com/mattvenn/online_questions/commit/{{ git_hash }}"
      style="color: #1a73e8;" target="_blank" rel="noopener">{{ git_hash }}</a>
+  <a class="claude-badge" href="https://claude.com/claude-code" target="_blank" rel="noopener" aria-label="Made with Claude">
+    <span class="cb-l"><svg role="img" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.541Zm-.3712 10.2232 2.2914-5.9456 2.2914 5.9456Z"/></svg>Made with</span><span class="cb-r">Claude</span>
+  </a>
 </p>
 {% endif %}
 </body>

@@ -28,4 +28,4 @@ echo ""
 cp "$INSTALL_DIR/online-questions.nginx" /etc/nginx/sites-available/online-questions
 ln -sf /etc/nginx/sites-available/online-questions /etc/nginx/sites-enabled/online-questions
 nginx -t && systemctl reload nginx
-echo "nginx configured for test.mattvenn.net"
+echo "nginx configured for q.tiny.tt"
